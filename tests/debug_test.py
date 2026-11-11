@@ -12,7 +12,7 @@ from qemu import REPO, command  # noqa: E402
 
 output = REPO / "build/tests/debug"
 output.mkdir(parents=True, exist_ok=True)
-with tempfile.TemporaryDirectory(prefix="astra-debug-") as workdir:
+with tempfile.TemporaryDirectory(prefix="agenticos-debug-") as workdir:
     # Refuse to attach to somebody else's debugger endpoint.
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 1234))

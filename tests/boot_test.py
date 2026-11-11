@@ -56,7 +56,7 @@ def validate_screen(ppm, png):
         width, height = map(int, dimensions.split())
         assert image.readline() == b"255\n"
         pixels = image.read()
-    assert width >= 356 and height >= 100
+    assert width >= 392 and height >= 100
     assert len(pixels) == width * height * 3
     palette = Counter(pixels[i:i + 3] for i in range(0, len(pixels), 3))
     background, foreground = bytes((12, 18, 32)), bytes((225, 235, 250))
@@ -73,16 +73,22 @@ def validate_screen(ppm, png):
 
 
 def run(args):
-    output = REPO / "build/tests" / args.firmware
+    suffix = args.firmware if args.scenario == "normal" else f"{args.firmware}-{args.scenario}-{args.minimum_level.lower()}"
+    if args.evidence_label:
+        suffix += f"-{args.evidence_label}"
+    output = REPO / "build/tests" / suffix
     output.mkdir(parents=True, exist_ok=True)
     serial = output / "serial.log"
     # Never accept a previous run's output as success.
     for filename in ("serial.log", "qemu.log", "screen.ppm", "screen.png", "registers.txt"):
         (output / filename).unlink(missing_ok=True)
-    with tempfile.TemporaryDirectory(prefix="astra-test-") as workdir:
+    with tempfile.TemporaryDirectory(prefix="agenticos-test-") as workdir:
         qmp_path = Path(workdir) / "qmp.sock"
         cmd = command(args.firmware, workdir, headless=True, iso=args.iso)
         cmd += ["-serial", f"file:{serial}", "-qmp", f"unix:{qmp_path},server=on,wait=off"]
+        (output / "command.json").write_text(json.dumps({
+            "command": cmd, "scenario": args.scenario,
+            "minimum_level": args.minimum_level}, indent=2) + "\n")
         qmp = None
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
@@ -92,13 +98,14 @@ def run(args):
                     text = serial.read_text(errors="replace") if serial.exists() else ""
                     if process.poll() is not None:
                         raise RuntimeError(f"QEMU exited early ({process.returncode})")
-                    if "ERROR" in text:
+                    if args.scenario == "normal" and ("[ERROR]" in text or "[PANIC]" in text):
                         raise RuntimeError(text)
-                    if "ASTRA: PHASE1 PASS\n" in text:
+                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE2 PASS\n"
+                    if expected in text:
                         break
                     time.sleep(0.05)
                 else:
-                    raise TimeoutError(f"No first-boot success marker within {args.timeout}s")
+                    raise TimeoutError(f"No expected kernel result within {args.timeout}s")
                 # Confirm the machine remains in our final HLT, with no reboot loop.
                 time.sleep(0.25)
                 qmp = QMP(qmp_path)
@@ -106,15 +113,17 @@ def run(args):
                 (output / "registers.txt").write_text(registers)
                 assert re.search(r"RIP=ffffffff800[0-9a-f]+", registers), "CPU left the kernel"
                 assert "HLT=1" in registers, "CPU did not reach the final halt"
+                flags = re.search(r"RFL=([0-9a-f]+)", registers)
+                assert flags and not int(flags[1], 16) & 0x200, "Maskable interrupts unexpectedly enabled"
                 text = serial.read_text()
-                assert text.count("ASTRA: kernel entered") == 1, "Unexpected kernel restart"
-                assert text.count("Welcome to AstraOS") == 1
-                assert text.count("ASTRA: PHASE1 PASS") == 1 and "ERROR" not in text
+                assert text.count("AGENTICOS: kernel entered") == 1, "Unexpected kernel restart"
+                assert text.count("AGENTICOS: PHASE1 PASS") == 1
+                validate_diagnostics(text, args.scenario, args.minimum_level)
                 qmp.execute("screendump", {"filename": str(output / "screen.ppm")})
                 screen = validate_screen(output / "screen.ppm", output / "screen.png")
                 qmp.execute("quit")
                 assert process.wait(timeout=5) == 0, "QEMU did not exit cleanly"
-                print(f"PASS: {args.firmware.upper()} boot, welcome, stable kernel HLT, screen {screen}")
+                print(f"PASS: {args.firmware.upper()} {args.scenario}/{args.minimum_level}, validated diagnostics, IRQs off, kernel HLT, screen {screen}")
                 print(f"Evidence: {output.relative_to(REPO)}")
             finally:
                 if qmp is not None:
@@ -133,13 +142,47 @@ def main():
     parser.add_argument("--firmware", choices=("bios", "uefi"), required=True)
     parser.add_argument("--iso", type=Path)
     parser.add_argument("--timeout", type=float, default=30)
+    parser.add_argument("--scenario", choices=("normal", "logs", "panic", "assert"), default="normal")
+    parser.add_argument("--minimum-level", choices=("DEBUG", "INFO", "WARNING", "ERROR", "PANIC"), default="INFO")
+    parser.add_argument("--evidence-label", default="", help="Optional unique suffix for this run's evidence")
     args = parser.parse_args()
+    if args.evidence_label and not re.fullmatch(r"[a-z0-9-]+", args.evidence_label):
+        parser.error("--evidence-label must contain only lowercase letters, digits or hyphens")
     try:
         run(args)
     except (AssertionError, OSError, RuntimeError, TimeoutError, subprocess.TimeoutExpired) as error:
-        print(f"FAIL: {args.firmware.upper()}: {error}; see build/tests/{args.firmware}", file=sys.stderr)
+        print(f"FAIL: {args.firmware.upper()} {args.scenario}: {error}; see build/tests", file=sys.stderr)
         return 1
     return 0
+
+
+def validate_diagnostics(text, scenario, minimum):
+    levels = ("DEBUG", "INFO", "WARNING", "ERROR", "PANIC")
+    entries = re.findall(r"^\[(\d+)\] \[(DEBUG|INFO|WARNING|ERROR|PANIC)\] \[([^\]]+)\] (.*)$", text, re.MULTILINE)
+    assert entries or minimum == "PANIC", "No structured kernel diagnostics"
+    assert [int(entry[0]) for entry in entries] == list(range(1, len(entries) + 1)), "Discontinuous/restarted log sequence"
+    assert all(levels.index(entry[1]) >= levels.index(minimum) for entry in entries), "Log filter failed"
+    if levels.index(minimum) <= levels.index("INFO"):
+        assert text.count("Welcome to AgenticOS") == 1
+        assert re.search(r"\[INFO\] \[cpu\] vendor=\S+ family=\d+ model=\d+ stepping=\d+", text)
+        assert "[INFO] [cpu] brand=" in text
+    if minimum == "DEBUG":
+        assert "[DEBUG] [serial] COM1 115200 8N1; transmit/receive loopback verified" in text
+        assert "[DEBUG] [cpu] long_mode=1" in text
+    if scenario in ("panic", "assert"):
+        assert text.count("[PANIC]") == 1 and "AGENTICOS: PHASE2 PASS" not in text
+        reason = "intentional panic probe" if scenario == "panic" else "assertion failed: 2 + 2 == 5"
+        assert re.search(r"\[PANIC\] \[panic\] kernel/kernel.c:\d+ kernel_main: " + re.escape(reason), text)
+        assert "[ERROR]" not in text
+    else:
+        assert text.count("AGENTICOS: PHASE2 PASS") == 1 and "[PANIC]" not in text
+        if scenario == "logs":
+            for level in levels[:-1]:
+                expected = f"[{level}] [selftest] diagnostic {level} record"
+                assert (expected in text) == (levels.index(level) >= levels.index(minimum))
+            assert all(entry[2] == "selftest" for entry in entries if entry[1] == "ERROR")
+        else:
+            assert "[ERROR]" not in text
 
 
 if __name__ == "__main__":

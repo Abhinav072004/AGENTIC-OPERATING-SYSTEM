@@ -1,4 +1,4 @@
-# Contributing to AstraOS
+# Contributing to AgenticOS
 
 Use C17 for kernel code, NASM for x86_64 glue and the pinned Clang cross target.
 Keep architecture operations under `kernel/arch/x86_64` and host tools outside

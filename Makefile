@@ -5,6 +5,8 @@ NASM := nasm
 PYTHON := python3
 BUILD := build
 LIMINE := .cache/limine
+KERNEL_LOG_LEVEL ?= INFO
+BOOT_TEST ?= none
 .DELETE_ON_ERROR:
 
 CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g \
@@ -12,14 +14,16 @@ CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer \
     -m64 -mcmodel=kernel -mno-red-zone -mgeneral-regs-only \
     -Wall -Wextra -Werror -Wpedantic -Wconversion -Wshadow -Wstrict-prototypes \
-    -Wmissing-prototypes -I$(LIMINE) -Ikernel -MMD -MP
+    -Wmissing-prototypes -I$(LIMINE) -Ikernel -include $(BUILD)/config.h -MMD -MP
 LDFLAGS := -nostdlib -static -z max-page-size=0x1000 -z noexecstack \
     --build-id=none -T kernel/arch/x86_64/linker.ld
 SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
-    kernel/drivers/display/framebuffer.c
+    kernel/drivers/display/framebuffer.c kernel/arch/x86_64/cpuid.c \
+    kernel/arch/x86_64/diagnostics.c kernel/cpu/info.c \
+    kernel/debug/format.c kernel/debug/log.c kernel/debug/panic.c
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o) $(BUILD)/kernel/arch/x86_64/entry.o
 
-.PHONY: all deps iso run run-uefi debug test test-debug test-host check-elf clean distclean
+.PHONY: all deps iso run run-uefi debug test test-debug test-foundation test-host check-elf clean distclean FORCE
 all: iso
 
 $(LIMINE)/.ready: boot/limine.lock scripts/fetch-limine.sh
@@ -27,7 +31,11 @@ $(LIMINE)/.ready: boot/limine.lock scripts/fetch-limine.sh
 	touch $@
 deps: $(LIMINE)/.ready
 
-$(BUILD)/%.o: %.c Makefile $(LIMINE)/.ready
+FORCE:
+$(BUILD)/config.h: FORCE tools/configure.py
+	$(PYTHON) tools/configure.py --output $@ --log-level $(KERNEL_LOG_LEVEL) --selftest $(BOOT_TEST)
+
+$(BUILD)/%.o: %.c Makefile $(BUILD)/config.h $(LIMINE)/.ready
 	@mkdir -p $(@D)
 	$(CC) $(CFLAGS) -c $< -o $@
 
@@ -38,7 +46,7 @@ $(BUILD)/%.o: %.asm Makefile
 $(BUILD)/kernel.elf: $(OBJECTS) kernel/arch/x86_64/linker.ld
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
-$(BUILD)/astraos.iso: $(BUILD)/kernel.elf boot/limine.conf Makefile $(LIMINE)/.ready
+$(BUILD)/agenticos.iso: $(BUILD)/kernel.elf boot/limine.conf Makefile $(LIMINE)/.ready
 	rm -rf $(BUILD)/iso-root
 	mkdir -p $(BUILD)/iso-root/boot/limine $(BUILD)/iso-root/EFI/BOOT
 	cp $(BUILD)/kernel.elf $(BUILD)/iso-root/boot/kernel.elf
@@ -54,7 +62,7 @@ $(BUILD)/astraos.iso: $(BUILD)/kernel.elf boot/limine.conf Makefile $(LIMINE)/.r
 	    --efi-boot boot/limine/limine-uefi-cd.bin -efi-boot-part \
 	    --efi-boot-image --protective-msdos-label $(BUILD)/iso-root -o $@
 	$(LIMINE)/limine bios-install $@
-iso: $(BUILD)/astraos.iso
+iso: $(BUILD)/agenticos.iso
 
 run: iso
 	$(PYTHON) tools/qemu.py --firmware bios
@@ -72,11 +80,19 @@ test-host: $(LIMINE)/.ready
 	    tests/framebuffer_test.c kernel/drivers/display/framebuffer.c \
 	    -o $(BUILD)/tests/framebuffer-test
 	$(BUILD)/tests/framebuffer-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic \
+	    -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel \
+	    tests/foundation_test.c kernel/debug/format.c kernel/debug/log.c \
+	    kernel/debug/panic.c kernel/cpu/info.c -o $(BUILD)/tests/foundation-test
+	$(BUILD)/tests/foundation-test
+	$(PYTHON) tests/config_test.py
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi
 test-debug: iso
 	$(PYTHON) tests/debug_test.py
+test-foundation:
+	$(PYTHON) tests/foundation_matrix.py
 
 clean:
 	rm -rf $(BUILD)

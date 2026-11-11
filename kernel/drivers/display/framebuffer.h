@@ -1,5 +1,5 @@
-#ifndef ASTRA_FRAMEBUFFER_H
-#define ASTRA_FRAMEBUFFER_H
+#ifndef AGENTICOS_FRAMEBUFFER_H
+#define AGENTICOS_FRAMEBUFFER_H
 
 #include <stdbool.h>
 #include <limine.h>

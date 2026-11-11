@@ -5,10 +5,12 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Phase 1 — first boot, verified in QEMU BIOS and UEFI.**
-The kernel displays `Welcome to AgenticOS`, emits serial test evidence, and halts.
-There is no AI runtime, shell, scheduler, filesystem, networking, or desktop yet.
-Phase 2 requires the project owner's approval before implementation.
+**Current milestone: Week 2 / Phase 2 — kernel foundation, verified in QEMU.**
+The kernel displays `Welcome to AgenticOS`, verifies COM1 loopback, identifies
+the CPU, emits structured diagnostics, and halts. Fatal assertions and panic
+paths report their source location and stop safely. There is no AI runtime,
+shell, scheduler, filesystem, networking, or desktop yet. Phase 3 (memory
+management) requires the project owner's approval before implementation.
 
 ## Build and test
 
@@ -18,9 +20,10 @@ On the prepared Debian cloud environment:
 ```sh
 cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/setup-debian.sh                 # first setup, or refresh local tools
-./scripts/env.sh make -j2                # build/astraos.iso and build/kernel.elf
+./scripts/env.sh make -j2                # build/agenticos.iso and build/kernel.elf
 ./scripts/env.sh make test               # ELF, sanitized host, BIOS and UEFI tests
 ./scripts/env.sh make test-debug         # verify GDB can break at kernel_main
+./scripts/env.sh make test-foundation    # eight BIOS/UEFI log and fatal-path boots
 ./scripts/env.sh make run                # BIOS, serial on terminal; Ctrl+C to exit
 ./scripts/env.sh make run-uefi           # UEFI equivalent
 ```
@@ -43,8 +46,10 @@ of scope for this milestone.
 ```text
 boot/                    Limine config and dependency lock
 kernel/
-  kernel.c               Boot-protocol checks and first-boot sequence
-  arch/x86_64/           Assembly entry, port I/O, UART, linker memory layout
+  kernel.c               Ordered initialization, boot checks and CPU diagnostics
+  arch/x86_64/           Entry, port I/O, UART, CPUID, panic stop, linker layout
+  cpu/                   Portable CPU information decoding
+  debug/                 Bounded formatting, log levels, panic and assertions
   drivers/display/       Bounded framebuffer welcome renderer
   memory/                Reserved for Phase 3
   interrupts/            Reserved for Phase 4
@@ -56,7 +61,7 @@ userland/
   agents/                Future isolated agent services
 libraries/               Reserved for shared kernel/user libraries
 scripts/                 Setup, dependency fetching, tool activation, GDB commands
-tools/                   QEMU launcher
+tools/                   QEMU launcher and validated configuration generator
 tests/                   Host, ELF, boot and debugger checks
 docs/                    Setup, internal explanations and milestone reports
 build/                   Generated ELF, ISO and evidence (ignored by Git)
@@ -72,7 +77,9 @@ Reserved directories contain no claimed implementations.
 - [Architecture and AI boundary](ARCHITECTURE.md)
 - [Milestones and approval gates](ROADMAP.md)
 - [How the first boot works](docs/FIRST_BOOT.md)
-- [Actual Phase 1 results and limitations](docs/reports/phase-1.md)
+- [Kernel foundation: logging, panic and CPU discovery](docs/KERNEL_FOUNDATION.md)
+- [Week 2 results and limitations](docs/reports/phase-2.md)
+- [Historical Week 1 report](docs/reports/phase-1.md) (original AstraOS branding)
 - [Test commands and debugging](TESTING.md)
 - [Contributing](CONTRIBUTING.md) · [Change log](CHANGELOG.md)
 

@@ -22,7 +22,7 @@ segment permissions. Debug symbols remain in the ELF for GDB.
 Physical RAM is the actual storage. A virtual address is what an instruction
 uses; page tables translate it to physical storage. Our high virtual address
 does not mean the PC has that much RAM. Limine maps the loaded kernel there.
-AstraOS will create and manage its own mappings in Phase 3.
+AgenticOS will create and manage its own mappings in Phase 3.
 
 ## 3. Assembly establishes our C calling environment
 
@@ -58,12 +58,15 @@ a tiny first-boot renderer, not a terminal, font engine, window system or GUI.
 
 COM1 is an emulated 16550-compatible UART at port `0x3f8`. We configure 115200,
 8N1 and poll its transmitter with a finite bound. QEMU routes its bytes to a
-host file or terminal. This minimal diagnostic path precedes a real logging
-system; a missing UART drops output instead of blocking boot forever.
+host file or terminal. Week 2 adds internal loopback verification and structured
+logging over this path; see [kernel foundation](KERNEL_FOUNDATION.md). A missing
+UART fails the bootstrap assertion; output can be unavailable on that hardware.
 
 ## 6. Halt is success for this milestone
 
-After printing `ASTRA: PHASE1 PASS`, the kernel executes `cli; hlt` in a loop.
+The original first-boot milestone printed its Phase 1 success marker and then
+executed `cli; hlt`. Week 2 completes its foundation diagnostics and prints
+`AGENTICOS: PHASE2 PASS` before entering that same halt loop.
 There is no scheduler or input handling yet. The boot test checks the serial
 marker, captures actual display pixels, and asks QEMU for CPU registers to
 verify the CPU is halted inside our higher-half kernel rather than rebooting.
@@ -71,7 +74,7 @@ The host terminates QEMU through QMP after recording evidence.
 
 ## Current limits
 
-- Initial page tables and GDT are still Limine's; no AstraOS memory manager.
+- Initial page tables and GDT are still Limine's; no AgenticOS memory manager.
 - No exception handlers, IDT, recovery, SMP, users, permissions or processes.
 - No input, files, persistent storage, networking, model runtime or desktop.
 - Only QEMU `q35`/`qemu64`/standard VGA/COM1 were tested; no physical hardware.

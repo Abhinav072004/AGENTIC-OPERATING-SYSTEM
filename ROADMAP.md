@@ -1,4 +1,4 @@
-# AstraOS roadmap
+# AgenticOS roadmap
 
 Implement phases in order. Each phase needs a build, relevant tests, a QEMU boot,
 documented evidence and owner approval before starting the next phase. Earlier
@@ -7,8 +7,8 @@ test suites remain regression checks. Reserved folders are not completed work.
 | Phase | Scope and completion evidence | Status |
 | --- | --- | --- |
 | 1 | Limine, x86_64 entry, linker, visible welcome, ISO; real QEMU boot | Verified: BIOS + UEFI |
-| 2 | Initialization, INFO/WARNING/ERROR/DEBUG/PANIC logging, panic/assertions, CPU info, serial console, kernel configuration | Awaiting approval |
-| 3 | Boot memory map, physical allocator, paging/VMM, heap, mappings and protection; allocation/free and invalid-access tests | Planned |
+| 2 | Initialization, INFO/WARNING/ERROR/DEBUG/PANIC logging, panic/assertions, CPU info, serial console, kernel configuration | Week 2 verified: BIOS/UEFI normal and fatal paths |
+| 3 | Boot memory map, physical allocator, paging/VMM, heap, mappings and protection; allocation/free and invalid-access tests | Awaiting approval |
 | 4 | GDT, IDT, ISRs, divide/invalid-opcode/GP/page-fault diagnostics, PIC/APIC as needed, measurable timer IRQs | Planned |
 | 5 | PCB/TCB, contexts, cooperative then preemptive round-robin tasks, termination and synchronization | Planned |
 | 6 | Ring 3, isolation, validated write/read/exit/getpid/yield syscalls and native user programs | Planned |
@@ -22,7 +22,8 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 14 | Repeatable release builds, BIOS/UEFI regression coverage, manuals and explicit hardware-test procedure | Planned |
 
 Some foundations overlap: minimal UART and framebuffer output are needed to
-verify Phase 1. They do not complete the Phase 2 logging framework or Phase 8.
+verify Phase 1. Phase 2 adds the diagnostic framework; general device drivers
+remain future Phase 8 work.
 Memory protection must be revisited when exception handlers exist; an initial
 Phase 3 mapping test does not imply recoverable fault handling before Phase 4.
 

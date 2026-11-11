@@ -1,4 +1,4 @@
-# AstraOS architecture
+# AgenticOS architecture
 
 ## Boot and kernel
 
@@ -14,11 +14,12 @@ Limine v8.7.0: ELF loading, initial page tables, framebuffer discovery
         |
 NASM _start: kernel-owned stack, System V AMD64 calling convention
         |
-C17 kernel_main: protocol validation -> framebuffer welcome -> serial PASS -> HLT
+C17 kernel_main: serial probe -> logger -> boot validation -> framebuffer
+                -> CPUID -> diagnostic checks -> success markers -> HLT
 ```
 
-Only this vertical path is implemented. Limine provides the initial 64-bit
-execution environment and mappings. AstraOS does not yet own a virtual/physical
+This boot path and Phase 2 diagnostic services are implemented. Limine provides the initial 64-bit
+execution environment and mappings. AgenticOS does not yet own a virtual/physical
 memory manager, GDT, IDT or allocator. Interrupts remain disabled.
 
 The ELF links at `0xffffffff80000000`. Separate 4 KiB-aligned LOAD segments
@@ -47,7 +48,7 @@ Policy-checked tool broker + explicit grants + action/audit history
                   |
 Validated system calls: processes, files, devices, networking
                   |
-Custom AstraOS kernel
+Custom AgenticOS kernel
 ```
 
 Future agent milestones require user mode, validated syscalls, filesystem
@@ -68,9 +69,15 @@ are design requirements, not completed features.
 - `kernel/drivers`: device-specific implementation. Current display consumes
   borrowed Limine metadata without allocating or freeing it.
 - `kernel/kernel.c`: initialization order and boot validation.
+- `kernel/debug`: bounded formatting, sequence-numbered log records and fatal
+  diagnostics; no allocator or libc dependency.
+- `kernel/cpu`: CPUID decoding behind an injectable reader; actual register
+  access and privileged panic-stop instructions stay in `arch/x86_64`.
 - Future portable subsystems get their own directories; they call architecture
   helpers instead of spreading inline assembly throughout the kernel.
-- `userland`: future native programs that use AstraOS syscalls, not host APIs.
+- `userland`: future native programs that use AgenticOS syscalls, not host APIs.
 - `scripts`, `tools`, `tests`: host programs; never linked into the kernel.
 
-There are no physical-device or production-security claims in Phase 1.
+There are no physical-device or production-security claims in Phase 2.
+Logging currently assumes one CPU with interrupts disabled; it is not an
+SMP/reentrant logging system. See [foundation internals](docs/KERNEL_FOUNDATION.md).

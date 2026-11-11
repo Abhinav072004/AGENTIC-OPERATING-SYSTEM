@@ -10,7 +10,8 @@ or scoped system-package helper on this host. Ordinary `apt-get update` failed
 because system package directories are read-only.
 
 `scripts/setup-debian.sh` solves this with a user-owned APT state/cache and
-package extraction at `/workspace/.astra-tools/root`. It does not change
+package extraction at `/workspace/.agenticos-tools/root` on fresh setups. Existing
+Week 1 environments reuse `/workspace/.astra-tools/root` automatically. It does not change
 system repositories, disable verification, or run package maintainer scripts.
 APT verifies official signed indexes and downloaded package hashes. The
 base host supplies already installed dependencies; this is not a standalone
@@ -43,11 +44,12 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/setup-debian.sh
 ./scripts/env.sh make -j2
 ./scripts/env.sh make test test-debug
+./scripts/env.sh make test-foundation
 ```
 
 Setup was rerun successfully using the existing package cache. Run commands
 through `scripts/env.sh` to activate the rootless tools only for that process.
-The directory can be changed by setting `ASTRA_TOOLS` to an absolute path
+The directory can be changed by setting `AGENTICOS_TOOLS` to an absolute path
 before both setup and activation. Do not mix a rootless toolchain for another
 distribution with this Debian host. If pinned packages disappear from the
 repository, deliberately update and revalidate pins; do not bypass APT checks.

@@ -23,6 +23,9 @@ static const struct glyph font[] = {
     {'a', { 0, 0,14, 1,15,17,15}},
     {'O', {14,17,17,17,17,17,14}},
     {'S', {15,16,16,14, 1, 1,30}},
+    {'g', { 0, 0,15,17,15, 1,14}},
+    {'n', { 0, 0,30,17,17,17,17}},
+    {'i', { 4, 0,12, 4, 4, 4,14}},
 };
 
 static uint32_t rgb(const struct limine_framebuffer *fb,
@@ -40,7 +43,7 @@ static void pixel(const struct limine_framebuffer *fb,
 }
 
 bool framebuffer_welcome(const struct limine_framebuffer *fb) {
-    static const char message[] = "Welcome to AstraOS";
+    static const char message[] = "Welcome to AgenticOS";
     const uint64_t scale = 3;
     const uint64_t text_width = (sizeof(message) - 1) * 6 * scale;
 
