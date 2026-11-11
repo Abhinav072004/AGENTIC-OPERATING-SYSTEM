@@ -1,12 +1,12 @@
-# AstraOS
+# AGENTICOS
 
 A custom, bootable x86_64 operating system, developed one verified milestone at
 a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
-working through native OS services. AstraOS has its own C17 kernel and uses
+working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
 **Current milestone: Phase 1 — first boot, verified in QEMU BIOS and UEFI.**
-The kernel displays `Welcome to AstraOS`, emits serial test evidence, and halts.
+The kernel displays `Welcome to AgenticOS`, emits serial test evidence, and halts.
 There is no AI runtime, shell, scheduler, filesystem, networking, or desktop yet.
 Phase 2 requires the project owner's approval before implementation.
 
