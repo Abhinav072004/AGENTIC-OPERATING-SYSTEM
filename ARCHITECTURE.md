@@ -14,18 +14,21 @@ Limine v8.7.0: ELF loading, initial page tables, framebuffer discovery
         |
 NASM _start: kernel-owned stack, System V AMD64 calling convention
         |
-C17 kernel_main: serial probe -> logger -> boot validation -> framebuffer
-                -> CPUID -> diagnostic checks -> success markers -> HLT
+C17 kernel_main: serial/logging -> boot validation -> framebuffer -> CPUID
+                -> PMM -> own page tables/CR3 -> heap -> memory self-checks -> HLT
 ```
 
-This boot path and Phase 2 diagnostic services are implemented. Limine provides the initial 64-bit
-execution environment and mappings. AgenticOS does not yet own a virtual/physical
-memory manager, GDT, IDT or allocator. Interrupts remain disabled.
+This path and the Phase 2 diagnostics are implemented. Limine provides the initial
+64-bit environment and mappings. Phase 3 builds fresh kernel-owned tables and
+switches CR3, keeping the bootloader GDT and metadata mapped and reserved.
+Interrupts remain disabled; the default kernel has no owned GDT or general IDT.
 
 The ELF links at `0xffffffff80000000`. Separate 4 KiB-aligned LOAD segments
 contain boot requests (RW), instructions (RX), constants (R), and data/stack
 (RW). No segment is both writable and executable. This is a layout property,
-not evidence of user-process isolation. `.bss` contains a 64 KiB kernel stack.
+not evidence of user-process isolation. Phase 3 also enforces these permissions
+in its own mappings; direct-map aliases of code/constants are read-only and NX.
+`.bss` contains a 64 KiB kernel stack.
 The linker preserves Limine request markers so the bootloader can find them.
 
 C targets `x86_64-unknown-none-elf`: freestanding, no libc, no dynamic loader,
@@ -73,11 +76,17 @@ are design requirements, not completed features.
   diagnostics; no allocator or libc dependency.
 - `kernel/cpu`: CPUID decoding behind an injectable reader; actual register
   access and privileged panic-stop instructions stay in `arch/x86_64`.
+- `kernel/memory`: portable frame/heap algorithms and ordered memory bootstrap.
+  Four-level table encoding and CR3/WP/NX/TLB operations stay in `arch/x86_64`.
+- `kernel/runtime`: compiler-required memory functions, with no host libc link.
 - Future portable subsystems get their own directories; they call architecture
   helpers instead of spreading inline assembly throughout the kernel.
 - `userland`: future native programs that use AgenticOS syscalls, not host APIs.
-- `scripts`, `tools`, `tests`: host programs; never linked into the kernel.
+- `scripts`, `tools`, host tests: development utilities, not linked into the kernel.
+  `tests/guest` is linked only into intentional page-fault test images.
 
-There are no physical-device or production-security claims in Phase 2.
+There are no physical-device or production-security claims in Phase 3.
 Logging currently assumes one CPU with interrupts disabled; it is not an
 SMP/reentrant logging system. See [foundation internals](docs/KERNEL_FOUNDATION.md).
+Allocators and page-table edits also assume serialized bootstrap-CPU execution.
+See [memory internals and ownership](docs/MEMORY.md) for layout, tests and limits.

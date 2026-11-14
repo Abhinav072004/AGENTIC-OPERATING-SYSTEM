@@ -8,6 +8,7 @@ the rootless toolchain.
 ./scripts/env.sh make test
 ./scripts/env.sh make test-debug
 ./scripts/env.sh make test-foundation
+./scripts/env.sh make test-memory
 ```
 
 ## Boot regressions and Phase 2 checks
@@ -45,7 +46,7 @@ Evidence lives in `build/tests/{bios,uefi}/`:
 - `registers.txt`: CPU state after success.
 - `screen.ppm`, `screen.png`: actual framebuffer capture, same image in two formats.
 
-These are generated files; [the Week 2 report](docs/reports/phase-2.md)
+These are generated files; [the Week 3 report](docs/reports/phase-3.md)
 records the accepted run. Tests return nonzero on failure. An intentional
 empty boot image was also checked to confirm timeout is a failing result.
 
@@ -86,6 +87,53 @@ options in one output directory rebuilds affected C objects; reverting restores
 the previous normal mode. Unchanged options preserve header timestamps and
 permit incremental builds. Test images must not replace a normal release image.
 
+## Memory management (Week 3)
+
+`make test-host` also executes PMM, heap and software page-table checks under
+ASan/UBSan: reserved/unaligned/overlapping ranges, physical frame zero, unique
+exhaustion/recovery, invalid and double frees, buffer guards, fragmentation,
+coalescing, 2048 deterministic heap stress steps, corruption detection, canonical
+address/flag validation, partial-allocation rollback, shared-table cleanup and
+data-frame ownership. Renamed compiler memory primitives are compared with libc
+over copy/fill and forward/backward overlapping moves without replacing the
+sanitizer runtime's own symbols.
+
+`make test-memory` builds five isolated images under `build/memory-scenarios`:
+
+| Scenario / BOOT_TEST | BIOS RAM | UEFI RAM | Result required |
+| --- | --- | --- | --- |
+| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 PASS |
+| readonly / memory-ro | 128 MiB | 128 MiB | Real #PF error 0x3; write did not commit |
+| nx / memory-nx | 128 MiB | 128 MiB | Real #PF error 0x11; RIP is the NX address |
+| guard / memory-guard | 128 MiB | 128 MiB | Real #PF error 0x0 at the unmapped guard |
+| oom / memory-oom | 128 MiB | 128 MiB | Exhaust/recover every free frame, then self-check and complete |
+
+These are 14 guest checks. The fault fixture installs only vector 14, records
+the actual CPU fault and halts; it is excluded from the default kernel. Those
+six guest faults are expected test outcomes, not successful normal boots.
+
+Every memory run requires real data self-checks, CPU CR3 equal to the newly
+allocated root, WP/NXE set, LA57/IF clear, a kernel HLT, and the actual welcome
+capture after switching page tables. It records exact argv, ISO SHA-256, serial,
+registers and screenshots in `build/tests/memory-{firmware}-{scenario}-{RAM}m/`.
+The default image remains separate from deliberate failures. `PHASE2 PASS`
+alone is no longer sufficient for a normal boot check.
+
+The runner additionally rejects a readonly-fault image presented as a normal
+image, even though that guest emits PHASE2 and PAGEFAULT success markers. This
+expected host failure is checked for exit 1 and saved in
+`build/tests/memory-runner-negative.log`. ANSI-interleaved bootloader panics are
+recognized explicitly. Known low-RAM experiments: UEFI 32 MiB timed out before
+kernel entry, and 64 MiB reported a Limine high-memory allocator panic. They
+are not supported acceptance targets; use at least the default 128 MiB for UEFI.
+
+Manual memory check:
+
+```sh
+./scripts/env.sh python3 tests/memory_boot_test.py --firmware bios --memory 32
+./scripts/env.sh python3 tests/memory_boot_test.py --firmware uefi --memory 128
+```
+
 ## GDB
 
 `make test-debug` is an additional automated debugger-readiness check. It starts
@@ -110,6 +158,6 @@ single-stepped individually. Exit QEMU with Ctrl+C in its terminal.
 
 ## Limits
 
-The targets cover implemented Phase 1/2 behavior. They do not verify a
-memory manager, exception recovery, user isolation, driver portability, AI,
-physical boot or Secure Boot. These require their own future milestones.
+The targets cover Phase 1–3 behavior. They do not verify general exception
+recovery, user isolation, SMP/concurrent allocation, driver portability, AI,
+physical boot or Secure Boot. These require future milestones.

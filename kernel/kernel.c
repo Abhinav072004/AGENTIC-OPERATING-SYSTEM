@@ -6,6 +6,8 @@
 #include "cpu/info.h"
 #include "debug/log.h"
 #include "debug/panic.h"
+#include "memory/init.h"
+#include "memory/probe.h"
 
 /* Volatile: Limine mutates these structures before transferring control. */
 __attribute__((used, section(".limine_requests_start")))
@@ -20,10 +22,53 @@ static volatile struct limine_framebuffer_request framebuffer_request = {
     .revision = 0,
 };
 
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_memmap_request memory_map_request = {
+    .id = LIMINE_MEMMAP_REQUEST, .revision = 0,
+};
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST, .revision = 0,
+};
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_kernel_address_request kernel_address_request = {
+    .id = LIMINE_KERNEL_ADDRESS_REQUEST, .revision = 0,
+};
+
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER
 
 _Noreturn void kernel_main(void);
+static struct memory_boot boot_memory;
+
+static bool read_memory_boot(void) {
+    const struct limine_memmap_response *map = memory_map_request.response;
+    const struct limine_hhdm_response *hhdm = hhdm_request.response;
+    const struct limine_kernel_address_response *image = kernel_address_request.response;
+    if (map == NULL || map->entries == NULL || map->entry_count == 0 ||
+        map->entry_count > PMM_REGION_LIMIT || hhdm == NULL || image == NULL) { return false; }
+    boot_memory.count = (size_t)map->entry_count;
+    boot_memory.hhdm = hhdm->offset;
+    boot_memory.kernel_physical = image->physical_base;
+    boot_memory.kernel_virtual = image->virtual_base;
+    for (size_t i = 0; i < boot_memory.count; ++i) {
+        const struct limine_memmap_entry *entry = map->entries[i];
+        if (entry == NULL) { return false; }
+        boot_memory.regions[i].base = entry->base;
+        boot_memory.regions[i].length = entry->length;
+        boot_memory.regions[i].usable = entry->type == LIMINE_MEMMAP_USABLE;
+        uint64_t flags = MEMORY_SKIP_REGION;
+        if (entry->type == LIMINE_MEMMAP_FRAMEBUFFER) {
+            flags = VM_WRITE | VM_NX | VM_WRITE_THROUGH | VM_CACHE_DISABLE;
+        } else if (entry->type == LIMINE_MEMMAP_USABLE || entry->type == LIMINE_MEMMAP_ACPI_RECLAIMABLE ||
+                   entry->type == LIMINE_MEMMAP_ACPI_NVS || entry->type == LIMINE_MEMMAP_BOOTLOADER_RECLAIMABLE ||
+                   entry->type == LIMINE_MEMMAP_KERNEL_AND_MODULES) {
+            flags = VM_WRITE | VM_NX;
+        }
+        boot_memory.direct_flags[i] = flags;
+    }
+    return true;
+}
 
 static void serial_sink(const char *record, void *context) {
     (void)context;
@@ -69,7 +114,22 @@ _Noreturn void kernel_main(void) {
 #elif CONFIG_SELFTEST == 3
     KASSERT(2 + 2 == 5);
 #endif
-    klog(LOG_INFO, "boot", "Kernel foundation initialized; halting");
+    klog(LOG_INFO, "boot", "Kernel foundation initialized");
     serial_write("AGENTICOS: PHASE2 PASS\n");
+    KASSERT(cpu.nx);
+    KASSERT(read_memory_boot());
+    KASSERT(memory_bootstrap(&boot_memory));
+    KASSERT(framebuffer_welcome(response->framebuffers[0]));
+#if CONFIG_SELFTEST == 7
+    memory_exhaustion_test();
+#endif
+    memory_self_test();
+#if CONFIG_SELFTEST >= 4 && CONFIG_SELFTEST <= 6
+    memory_fault_probe(CONFIG_SELFTEST);
+#elif CONFIG_SELFTEST == 7
+    serial_write("AGENTICOS: OOM PASS\n");
+#endif
+    klog(LOG_INFO, "boot", "Memory foundation initialized; halting");
+    serial_write("AGENTICOS: PHASE3 PASS\n");
     cpu_halt();
 }

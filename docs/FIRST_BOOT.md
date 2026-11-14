@@ -1,5 +1,9 @@
 # Understanding the first boot
 
+This walkthrough describes the original boot handoff. Week 3 subsequently
+replaces the initial mappings with kernel-owned paging and allocators; see
+[memory management](MEMORY.md) and its current limitations.
+
 ## 1. Firmware finds a bootloader
 
 QEMU emulates a PC. SeaBIOS or OVMF initializes it and reads the ISO's El Torito

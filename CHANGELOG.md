@@ -1,5 +1,19 @@
 # Change log
 
+## 0.3.0 — 2026-11-14 (Week 3)
+
+- Allocate/free 4 KiB physical frames using validated usable-memory regions and
+  separate eligibility/allocation bitmaps; reserve allocator metadata.
+- Build kernel-owned four-level page tables, switch CR3, enable WP/NX, flush
+  inherited global translations, and support map/query/protect/unmap/cleanup.
+- Enforce W^X, protect kernel code/constants and their direct-map aliases.
+- Add a 16-byte-aligned 256 KiB first-fit heap with splitting, coalescing,
+  invalid-free checks, metadata validation and two unmapped boundary guards.
+- Supply freestanding compiler memory primitives and sanitizer tests.
+- Verify guest data aliasing, TLB remapping, cross-page heap data and OOM recovery.
+- Add 14 BIOS/UEFI memory checks, test-only real page-fault probes and readiness
+  rejection checks. Record pre-kernel UEFI low-RAM failures at 32/64 MiB.
+
 ## 0.2.0 — 2026-11-11 (Week 2)
 
 - Adopt the owner's AgenticOS branding in current banners, artifacts and docs;

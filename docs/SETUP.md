@@ -45,6 +45,7 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make -j2
 ./scripts/env.sh make test test-debug
 ./scripts/env.sh make test-foundation
+./scripts/env.sh make test-memory
 ```
 
 Setup was rerun successfully using the existing package cache. Run commands

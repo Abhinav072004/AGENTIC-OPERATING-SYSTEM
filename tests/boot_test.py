@@ -100,7 +100,7 @@ def run(args):
                         raise RuntimeError(f"QEMU exited early ({process.returncode})")
                     if args.scenario == "normal" and ("[ERROR]" in text or "[PANIC]" in text):
                         raise RuntimeError(text)
-                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE2 PASS\n"
+                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE3 PASS\n"
                     if expected in text:
                         break
                     time.sleep(0.05)
@@ -119,6 +119,8 @@ def run(args):
                 assert text.count("AGENTICOS: kernel entered") == 1, "Unexpected kernel restart"
                 assert text.count("AGENTICOS: PHASE1 PASS") == 1
                 validate_diagnostics(text, args.scenario, args.minimum_level)
+                if args.scenario not in ("panic", "assert"):
+                    assert text.count("AGENTICOS: PHASE3 PASS") == 1
                 qmp.execute("screendump", {"filename": str(output / "screen.ppm")})
                 screen = validate_screen(output / "screen.ppm", output / "screen.png")
                 qmp.execute("quit")

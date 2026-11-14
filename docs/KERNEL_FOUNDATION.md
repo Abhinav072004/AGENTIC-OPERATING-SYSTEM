@@ -1,5 +1,9 @@
 # Week 2: understanding the kernel foundation
 
+This is the Week 2 foundation walkthrough. Week 3 extends it with
+[kernel-owned memory management](MEMORY.md); historical acceptance results
+remain in the Week 2 report.
+
 Phase 1 proved the CPU could reach our C code. Phase 2 adds the diagnostics
 needed to develop memory management and interrupts without guessing why a
 boot stopped. These services run before allocation, threads or a filesystem.

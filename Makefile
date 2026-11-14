@@ -20,10 +20,17 @@ LDFLAGS := -nostdlib -static -z max-page-size=0x1000 -z noexecstack \
 SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/drivers/display/framebuffer.c kernel/arch/x86_64/cpuid.c \
     kernel/arch/x86_64/diagnostics.c kernel/cpu/info.c \
-    kernel/debug/format.c kernel/debug/log.c kernel/debug/panic.c
-OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o) $(BUILD)/kernel/arch/x86_64/entry.o
+    kernel/debug/format.c kernel/debug/log.c kernel/debug/panic.c \
+    kernel/memory/pmm.c kernel/memory/heap.c kernel/memory/init.c \
+    kernel/arch/x86_64/paging.c kernel/arch/x86_64/memory.c kernel/runtime/memory.c
+ASM_SOURCES := kernel/arch/x86_64/entry.asm
+ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
+SOURCES += tests/guest/memory_probe.c
+ASM_SOURCES += tests/guest/memory_probe_entry.asm
+endif
+OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o) $(ASM_SOURCES:%.asm=$(BUILD)/%.o)
 
-.PHONY: all deps iso run run-uefi debug test test-debug test-foundation test-host check-elf clean distclean FORCE
+.PHONY: all deps iso run run-uefi debug test test-debug test-foundation test-memory test-host check-elf clean distclean FORCE
 all: iso
 
 $(LIMINE)/.ready: boot/limine.lock scripts/fetch-limine.sh
@@ -86,6 +93,20 @@ test-host: $(LIMINE)/.ready
 	    kernel/debug/panic.c kernel/cpu/info.c -o $(BUILD)/tests/foundation-test
 	$(BUILD)/tests/foundation-test
 	$(PYTHON) tests/config_test.py
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic \
+	    -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel \
+	    tests/memory_test.c kernel/memory/pmm.c kernel/memory/heap.c \
+	    kernel/arch/x86_64/paging.c -o $(BUILD)/tests/memory-test
+	$(BUILD)/tests/memory-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic \
+	    -fsanitize=address,undefined -fno-omit-frame-pointer -ffreestanding -fno-builtin \
+	    -Dmemcpy=agenticos_memcpy -Dmemmove=agenticos_memmove \
+	    -Dmemset=agenticos_memset -Dmemcmp=agenticos_memcmp -Ikernel \
+	    -c kernel/runtime/memory.c -o $(BUILD)/tests/runtime-memory.o
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic \
+	    -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel \
+	    tests/runtime_memory_test.c $(BUILD)/tests/runtime-memory.o -o $(BUILD)/tests/runtime-memory-test
+	$(BUILD)/tests/runtime-memory-test
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi
@@ -93,6 +114,9 @@ test-debug: iso
 	$(PYTHON) tests/debug_test.py
 test-foundation:
 	$(PYTHON) tests/foundation_matrix.py
+test-memory:
+	$(PYTHON) tests/memory_matrix.py
+	$(PYTHON) tests/memory_runner_test.py
 
 clean:
 	rm -rf $(BUILD)
