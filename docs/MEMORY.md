@@ -3,6 +3,8 @@
 Phase 3 adds physical-frame allocation, kernel-owned paging and a small kernel
 heap. The normal kernel runs data-integrity checks, emits PHASE3 PASS and halts.
 These are foundations for later processes and isolated agents, not an AI runtime.
+Week 4 adds [kernel-owned descriptors and interrupt handling](INTERRUPTS.md);
+memory protection probes now use that common ISR path.
 
 ## Physical versus virtual memory
 
@@ -38,8 +40,9 @@ ownership, and accepts physical frame zero through a separate boolean result.
 Free rejects misalignment, reserved/out-of-range frames and double frees. It
 cannot authenticate caller identity: kernel code must free only its own frames.
 Bootloader-reclaimable and ACPI memory is deliberately not reclaimed yet. The
-bootloader GDT and metadata must remain valid until later initialization removes
-those dependencies. Reinitializing a live allocator is a caller error.
+bootloader metadata remains mapped conservatively. Week 4 removes the GDT
+dependency by loading kernel-owned descriptors before this bootstrap.
+Reinitializing a live allocator is a caller error.
 
 ## Kernel-owned page tables and layout
 
@@ -108,7 +111,7 @@ map. These checks are not a production memory-safety or user-isolation boundary.
 ## Actual CPU page-fault probes
 
 Vector 14 reports failed translations or permissions. Isolated test images
-install a minimal #PF gate and validate real CR2, error code and RIP:
+validate real CR2, error code and RIP through the kernel's common #PF ISR:
 
 | Probe | Required CPU error |
 | --- | --- |
@@ -118,9 +121,10 @@ install a minimal #PF gate and validate real CR2, error code and RIP:
 
 The write probe also verifies original physical contents were not changed.
 The NX probe requires RIP equal to the attempted execution address. Each handler
-reports the expected fault and halts rather than resuming. This IDT fixture is
-excluded from normal builds: general GDT/IDT ownership and exception recovery
-remain Phase 4. The normal kernel still keeps interrupts disabled.
+reports the expected fault and halts rather than resuming. Only the test observer
+is excluded from normal builds; the owned IDT and general fatal diagnostics are
+now part of the default kernel. General exception recovery remains unimplemented.
+The timer check enables maskable interrupts only after memory checks complete.
 
 Host ASan/UBSan checks exercise allocator and table algorithms; guest checks
 separately prove hardware translation, CR3/WP/NXE state, TLB behavior and CPU

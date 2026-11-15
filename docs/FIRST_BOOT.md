@@ -3,6 +3,7 @@
 This walkthrough describes the original boot handoff. Week 3 subsequently
 replaces the initial mappings with kernel-owned paging and allocators; see
 [memory management](MEMORY.md) and its current limitations.
+Week 4 adds [owned descriptors, exception diagnostics and timer IRQs](INTERRUPTS.md).
 
 ## 1. Firmware finds a bootloader
 
@@ -26,11 +27,11 @@ segment permissions. Debug symbols remain in the ELF for GDB.
 Physical RAM is the actual storage. A virtual address is what an instruction
 uses; page tables translate it to physical storage. Our high virtual address
 does not mean the PC has that much RAM. Limine maps the loaded kernel there.
-AgenticOS will create and manage its own mappings in Phase 3.
+Phase 3 replaces these initial mappings with AgenticOS-owned page tables.
 
 ## 3. Assembly establishes our C calling environment
 
-`entry.asm` keeps interrupts disabled because no IDT exists, clears the direction
+`entry.asm` keeps interrupts disabled until C installs an IDT, clears the direction
 flag, selects our zero-initialized 64 KiB stack and calls `kernel_main`.
 The stack pointer is aligned to 16 bytes before `call`, as required by the System
 V AMD64 ABI. `call` pushes the return address. A stack provides temporary storage
@@ -70,7 +71,8 @@ UART fails the bootstrap assertion; output can be unavailable on that hardware.
 
 The original first-boot milestone printed its Phase 1 success marker and then
 executed `cli; hlt`. Week 2 completes its foundation diagnostics and prints
-`AGENTICOS: PHASE2 PASS` before entering that same halt loop.
+`AGENTICOS: PHASE2 PASS`. The current kernel continues through memory and
+interrupt checks, prints `AGENTICOS: PHASE4 PASS`, then enters that halt loop.
 There is no scheduler or input handling yet. The boot test checks the serial
 marker, captures actual display pixels, and asks QEMU for CPU registers to
 verify the CPU is halted inside our higher-half kernel rather than rebooting.
@@ -78,11 +80,12 @@ The host terminates QEMU through QMP after recording evidence.
 
 ## Current limits
 
-- Initial page tables and GDT are still Limine's; no AgenticOS memory manager.
-- No exception handlers, IDT, recovery, SMP, users, permissions or processes.
+- Kernel-owned paging, allocators, GDT/IDT/TSS and timer IRQs are now implemented.
+- Exceptions report and halt; there is no general recovery, SMP or user process.
 - No input, files, persistent storage, networking, model runtime or desktop.
 - Only QEMU `q35`/`qemu64`/standard VGA/COM1 were tested; no physical hardware.
-- Interrupts are disabled, but this is not protection against NMIs or all faults.
+- Maskable interrupts run during the timer check and are disabled at final halt;
+  NMI and machine-check handlers remain fatal, with separate stacks.
 - UEFI tests use OVMF without Secure Boot; the image is not signed.
 
 Protocol references (matched to the dependency pin):

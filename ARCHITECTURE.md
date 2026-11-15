@@ -15,13 +15,17 @@ Limine v8.7.0: ELF loading, initial page tables, framebuffer discovery
 NASM _start: kernel-owned stack, System V AMD64 calling convention
         |
 C17 kernel_main: serial/logging -> boot validation -> framebuffer -> CPUID
-                -> PMM -> own page tables/CR3 -> heap -> memory self-checks -> HLT
+                -> GDT/IDT/TSS + masked PIC -> PMM -> own CR3 -> heap
+                -> memory self-checks -> IRETQ check -> PIT IRQs -> masked HLT
 ```
 
-This path and the Phase 2 diagnostics are implemented. Limine provides the initial
-64-bit environment and mappings. Phase 3 builds fresh kernel-owned tables and
-switches CR3, keeping the bootloader GDT and metadata mapped and reserved.
-Interrupts remain disabled; the default kernel has no owned GDT or general IDT.
+This path is implemented through Phase 4. Limine provides the initial 64-bit
+environment and mappings. AgenticOS loads its own GDT/IDT/TSS before memory
+bootstrap, then builds fresh page tables and switches CR3. Bootloader metadata
+stays mapped/reserved conservatively. All descriptor and exception-stack storage
+lives in the kernel image and survives the address-space switch.
+Only the timer test enables maskable interrupts; it masks all PIC lines and
+clears IF before reporting final success and halting.
 
 The ELF links at `0xffffffff80000000`. Separate 4 KiB-aligned LOAD segments
 contain boot requests (RW), instructions (RX), constants (R), and data/stack
@@ -33,7 +37,8 @@ The linker preserves Limine request markers so the bootloader can find them.
 
 C targets `x86_64-unknown-none-elf`: freestanding, no libc, no dynamic loader,
 no stack protector runtime, no red zone, and no SIMD register use. Interrupt
-code and SIMD context management do not exist yet. C++ is unnecessary here.
+stubs save all 15 general-purpose registers and restore with IRETQ; SIMD context
+management remains future work. C++ is unnecessary here.
 
 ## Agentic design direction — planned, not implemented
 
@@ -79,14 +84,23 @@ are design requirements, not completed features.
 - `kernel/memory`: portable frame/heap algorithms and ordered memory bootstrap.
   Four-level table encoding and CR3/WP/NX/TLB operations stay in `arch/x86_64`.
 - `kernel/runtime`: compiler-required memory functions, with no host libc link.
+- `kernel/interrupts`: fatal exception diagnostics, PIC IRQ dispatch and bounded
+  timer acceptance. Descriptors, ISR assembly and PIC/PIT port policy remain in
+  `arch/x86_64`; controller/descriptor algorithms are host-testable.
 - Future portable subsystems get their own directories; they call architecture
   helpers instead of spreading inline assembly throughout the kernel.
 - `userland`: future native programs that use AgenticOS syscalls, not host APIs.
 - `scripts`, `tools`, host tests: development utilities, not linked into the kernel.
-  `tests/guest` is linked only into intentional page-fault test images.
+  `tests/guest` is linked only into intentional memory/exception test images.
 
-There are no physical-device or production-security claims in Phase 3.
+There are no physical-device or production-security claims in Phase 4.
 Logging currently assumes one CPU with interrupts disabled; it is not an
-SMP/reentrant logging system. See [foundation internals](docs/KERNEL_FOUNDATION.md).
+SMP/reentrant logging system. Timer IRQ handlers never log or allocate; their
+counters are reported with IF clear afterward. Fatal exceptions use bounded
+serial diagnostics, a lock-free reentry guard and dedicated IST stacks for
+double fault, NMI and machine check. This does not make all logger operations
+NMI-safe or provide arbitrary exception recovery.
+See [foundation internals](docs/KERNEL_FOUNDATION.md).
 Allocators and page-table edits also assume serialized bootstrap-CPU execution.
 See [memory internals and ownership](docs/MEMORY.md) for layout, tests and limits.
+See [interrupt internals](docs/INTERRUPTS.md) for frames, EOI and fatal behavior.

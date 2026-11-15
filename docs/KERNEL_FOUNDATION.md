@@ -3,6 +3,8 @@
 This is the Week 2 foundation walkthrough. Week 3 extends it with
 [kernel-owned memory management](MEMORY.md); historical acceptance results
 remain in the Week 2 report.
+Week 4 adds [interrupt/exception handling](INTERRUPTS.md). Examples below describe
+the Week 2 stage; the current kernel continues through the later checks.
 
 Phase 1 proved the CPU could reach our C code. Phase 2 adds the diagnostics
 needed to develop memory management and interrupts without guessing why a
@@ -55,9 +57,10 @@ precision, floats and `%n` are intentionally unsupported. Logger errors yield
 Use trusted literal formats and type-correct arguments, as with `printf`.
 
 This is a bootstrap logger for one CPU with interrupts disabled. It has no
-locks, persistent ring buffer, NMI support or concurrency guarantees. Those
-must be revisited before interrupts/SMP are enabled. Bounded buffers do not
-make arbitrary invalid string pointers safe to read.
+locks, persistent ring buffer or general concurrency guarantees. Week 4 timer
+handlers update counters without logging; main code prints results after CLI.
+Fatal NMI diagnostics are best effort and do not make this sink NMI-reentrant.
+Bounded buffers do not make arbitrary invalid string pointers safe to read.
 
 ## Assertions and fatal panic
 
@@ -103,10 +106,11 @@ output sink, and UART transmission can drop bytes on timeout.
 `tools/configure.py` validates `KERNEL_LOG_LEVEL` and `BOOT_TEST`, generates a
 header under the chosen build directory and only rewrites changed content.
 Make includes it in the cross build and tracks it as an object dependency.
-The normal build uses INFO and no self-tests. The test matrix keeps deliberate
+The normal build uses INFO and `BOOT_TEST=none`, with ordinary boot self-checks.
+The test matrix keeps deliberate
 panic/error images isolated from `build/agenticos.iso`.
 
 These diagnostics are a prerequisite for future agent services: failures must
 be observable before adding model runtimes or autonomous tools. This phase
 contains no inference, agent planner, permissions broker or AI execution.
-The next approved phase is physical/virtual memory management.
+Physical/virtual memory and interrupt milestones now extend this foundation.

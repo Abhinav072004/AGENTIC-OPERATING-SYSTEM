@@ -8,6 +8,10 @@
 #include "debug/panic.h"
 #include "memory/init.h"
 #include "memory/probe.h"
+#include "interrupts/interrupts.h"
+#if CONFIG_SELFTEST >= 8 && CONFIG_SELFTEST <= 15
+_Noreturn void interrupt_exception_probe(unsigned int mode);
+#endif
 
 /* Volatile: Limine mutates these structures before transferring control. */
 __attribute__((used, section(".limine_requests_start")))
@@ -101,7 +105,8 @@ _Noreturn void kernel_main(void) {
     klog(LOG_DEBUG, "cpu", "long_mode=%u nx=%u sse2=%u apic=%u hypervisor=%u",
          (unsigned int)cpu.long_mode, (unsigned int)cpu.nx, (unsigned int)cpu.sse2,
          (unsigned int)cpu.apic, (unsigned int)cpu.hypervisor);
-    klog(LOG_WARNING, "boot", "Interrupts disabled; exception handlers are not installed yet");
+    interrupts_init();
+    klog(LOG_WARNING, "boot", "Maskable interrupts disabled until timer verification");
     serial_write("AGENTICOS: PHASE1 PASS\n");
 
 #if CONFIG_SELFTEST == 1
@@ -129,7 +134,14 @@ _Noreturn void kernel_main(void) {
 #elif CONFIG_SELFTEST == 7
     serial_write("AGENTICOS: OOM PASS\n");
 #endif
-    klog(LOG_INFO, "boot", "Memory foundation initialized; halting");
+    klog(LOG_INFO, "boot", "Memory foundation initialized");
     serial_write("AGENTICOS: PHASE3 PASS\n");
+    interrupts_self_test();
+#if CONFIG_SELFTEST >= 8 && CONFIG_SELFTEST <= 15
+    interrupt_exception_probe(CONFIG_SELFTEST);
+#endif
+    interrupts_timer_test();
+    klog(LOG_INFO, "boot", "Interrupt foundation initialized; halting");
+    serial_write("AGENTICOS: PHASE4 PASS\n");
     cpu_halt();
 }

@@ -25,12 +25,13 @@ def check_memory_logs(text, scenario):
     validate_diagnostics(text, "normal", "INFO")
     assert text.count("AGENTICOS: kernel entered") == 1
     assert text.count("AGENTICOS: PHASE1 PASS") == 1
-    assert "AgenticOS 0.3.0" in text
+    assert "AgenticOS 0.4.0" in text
     assert text.count("PMM allocate/free and VMM alias/protect/remap/unmap passed") == 1
     assert text.count("heap alignment, cross-page data, invalid-free and coalescing passed") == 1
     assert "guard pages=2; supervisor WP=1 NX=1" in text
     if scenario in ("readonly", "nx", "guard"):
         assert "AGENTICOS: PHASE3 PASS" not in text
+        assert "AGENTICOS: PHASE4 PASS" not in text
         assert text.count("AGENTICOS: PAGEFAULT PASS") == 1
         fault = re.search(r"\[memory-probe\] (\w+) fault: address=0x([0-9a-f]+) error=0x([0-9a-f]+) ip=0x([0-9a-f]+)", text)
         assert fault and fault[1] == scenario
@@ -43,6 +44,8 @@ def check_memory_logs(text, scenario):
             assert int(fault[4], 16) >= 0xFFFFFFFF80000000
     else:
         assert text.count("AGENTICOS: PHASE3 PASS") == 1 and "AGENTICOS: PAGEFAULT PASS" not in text
+        assert text.count("AGENTICOS: PHASE4 PASS") == 1
+        assert text.count("AGENTICOS: TIMER PASS") == 1
     if scenario == "oom":
         exhaustion = re.search(r"\[memory-test\] exhausted and recovered (\d+) physical frames", text)
         assert exhaustion and int(exhaustion[1]) > 0 and text.count("AGENTICOS: OOM PASS") == 1
@@ -75,7 +78,7 @@ def run(args):
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
                 expected = ("AGENTICOS: PAGEFAULT PASS\n" if args.scenario in ("readonly", "nx", "guard")
-                            else "AGENTICOS: PHASE3 PASS\n")
+                            else "AGENTICOS: PHASE4 PASS\n")
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     text = serial.read_text(errors="replace") if serial.exists() else ""

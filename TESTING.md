@@ -9,6 +9,7 @@ the rootless toolchain.
 ./scripts/env.sh make test-debug
 ./scripts/env.sh make test-foundation
 ./scripts/env.sh make test-memory
+./scripts/env.sh make test-interrupts
 ```
 
 ## Boot regressions and Phase 2 checks
@@ -46,7 +47,7 @@ Evidence lives in `build/tests/{bios,uefi}/`:
 - `registers.txt`: CPU state after success.
 - `screen.ppm`, `screen.png`: actual framebuffer capture, same image in two formats.
 
-These are generated files; [the Week 3 report](docs/reports/phase-3.md)
+These are generated files; [the Week 4 report](docs/reports/phase-4.md)
 records the accepted run. Tests return nonzero on failure. An intentional
 empty boot image was also checked to confirm timeout is a failing result.
 
@@ -102,22 +103,24 @@ sanitizer runtime's own symbols.
 
 | Scenario / BOOT_TEST | BIOS RAM | UEFI RAM | Result required |
 | --- | --- | --- | --- |
-| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 PASS |
+| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 then PHASE4 PASS |
 | readonly / memory-ro | 128 MiB | 128 MiB | Real #PF error 0x3; write did not commit |
 | nx / memory-nx | 128 MiB | 128 MiB | Real #PF error 0x11; RIP is the NX address |
 | guard / memory-guard | 128 MiB | 128 MiB | Real #PF error 0x0 at the unmapped guard |
 | oom / memory-oom | 128 MiB | 128 MiB | Exhaust/recover every free frame, then self-check and complete |
 
-These are 14 guest checks. The fault fixture installs only vector 14, records
-the actual CPU fault and halts; it is excluded from the default kernel. Those
-six guest faults are expected test outcomes, not successful normal boots.
+These are 14 guest checks. Since Week 4 the test-only observer receives actual
+page faults through the production GDT/IDT/common ISR path. It reports and halts;
+only the observer is excluded from the default kernel. Those six guest faults
+are expected test outcomes, not successful normal boots.
 
 Every memory run requires real data self-checks, CPU CR3 equal to the newly
 allocated root, WP/NXE set, LA57/IF clear, a kernel HLT, and the actual welcome
 capture after switching page tables. It records exact argv, ISO SHA-256, serial,
 registers and screenshots in `build/tests/memory-{firmware}-{scenario}-{RAM}m/`.
-The default image remains separate from deliberate failures. `PHASE2 PASS`
-alone is no longer sufficient for a normal boot check.
+The default image remains separate from deliberate failures. Normal/oom checks
+now wait for PHASE4 and the completed timer test; earlier phase markers alone
+are insufficient for current normal readiness.
 
 The runner additionally rejects a readonly-fault image presented as a normal
 image, even though that guest emits PHASE2 and PAGEFAULT success markers. This
@@ -156,8 +159,66 @@ entry point use `step`, `next`, `info registers`, `x/i $rip` and `bt`. The optim
 build may fold variables/lines; no claim is made that all C statements can be
 single-stepped individually. Exit QEMU with Ctrl+C in its terminal.
 
+## Interrupts and exceptions (Week 4)
+
+`test-host` additionally checks actual descriptor/controller algorithms under
+ASan/UBSan: GDT access/type/base/limit encoding, TSS RSP/IST/I/O bitmap layout,
+all 256 gate addresses/selectors/attributes, bad inputs without partial writes,
+PIC initialization/masking/cascade rules, explicit/slave/spurious EOI order,
+and PIT frequency bounds, divisor and low/high port writes.
+Hardware I/O is replaced by callbacks in this host binary.
+
+`make test-interrupts` builds nine isolated images and executes **18 guest checks**
+at 128 MiB, one BIOS and one UEFI run per row:
+
+| BOOT_TEST | Required CPU result |
+| --- | --- |
+| none | Owned GDT/IDT/TSS, IRETQ register/flag preservation, at least eight timer IRQs/EOIs, PHASE4 PASS |
+| exception-divide | Real integer divide error, vector 0, error 0, exact fault RIP |
+| exception-ud | UD2, vector 6, error 0, exact fault RIP |
+| exception-gp | Invalid GDT selector, vector 13, error 0x28, exact fault RIP |
+| exception-pf | Unmapped read, vector 14, error 0, exact CR2/RIP and decoded bits |
+| exception-df | Real nested page-fault delivery with bad RSP, vector 8, error 0, handler on IST1 |
+| exception-nmi | Host QMP inject-nmi with IF clear, vector 2, handler on IST2 |
+| exception-ro | Read-only supervisor write, vector 14, error 0x3 and decoded write/present bits |
+| exception-nx | NX heap instruction fetch, vector 14, error 0x11, RIP=CR2 and decoded fetch bit |
+
+Every run verifies actual GDTR/IDTR bases and limits against the kernel report,
+TR selector/limit, CS, CR3/WP/NXE, CPL 0 and a final high-kernel HLT with IF clear.
+The TSS busy bit is read independently from actual guest GDT memory through
+QMP; the cached TR label differs in the pinned QEMU version. Fatal runs verify
+all 15 saved GPR fields and saved CS/SS/RFLAGS/RSP. Symbol addresses from the
+corresponding ELF check fault RIPs; the double-fault abort RIP is not used as a
+recovery instruction. The NMI run records the actual injection action.
+
+The normal software INT check verifies distinct high-bit values in every GPR,
+original RSP, saved CF/DF and live DF/IF. Controlled software IRQ7/15 vectors
+exercise spurious paths; actual timer delivery separately proves hardware IRQ0
+and return/EOI behavior. Only IRQ0 is enabled, and IRQ handlers do not log or
+allocate. Main code reports counters after masking the PIC and clearing IF.
+
+Fatal probes halt after EXCEPTION HALT, never PHASE4 PASS; they are expected
+test outcomes rather than successful normal boots. A divide-fault image fed
+to the normal boot checker must exit 1 even though PHASE3 and IRET completed.
+Its output is `build/tests/interrupt-runner-negative.log`.
+
+Images live under `build/interrupt-scenarios/{normal,divide,...}/`. Evidence is
+in `build/tests/interrupt-{firmware}-{scenario}/`: exact argv, ISO and ELF hashes,
+QMP actions, serial/emulator logs, register dump, `gdt-memory.txt` and actual
+framebuffer captures. Runners clear known stale evidence, enforce a deadline,
+request QMP shutdown, and clean up only their own QEMU process on failure.
+
+Manual check of the default normal ISO:
+
+```sh
+./scripts/env.sh python3 tests/interrupt_boot_test.py --firmware bios
+./scripts/env.sh python3 tests/interrupt_boot_test.py --firmware uefi
+```
+
 ## Limits
 
-The targets cover Phase 1–3 behavior. They do not verify general exception
+The targets cover Phase 1–4 behavior. They do not verify general exception
 recovery, user isolation, SMP/concurrent allocation, driver portability, AI,
-physical boot or Secure Boot. These require future milestones.
+physical boot or Secure Boot. Actual machine-check delivery, APIC/IOAPIC,
+arbitrary NMI nesting and preemptive scheduling are not exercised or claimed.
+These require future milestones.

@@ -17,6 +17,7 @@ _start:
 
 section .bss
 align 16
+global stack_top
 stack_bottom:
     resb 65536
 stack_top:
