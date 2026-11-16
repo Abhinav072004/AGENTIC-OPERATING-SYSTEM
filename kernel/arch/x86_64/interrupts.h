@@ -42,7 +42,8 @@ const char *x86_exception_name(uint64_t vector);
 bool arch_interrupts_init(void);
 unsigned int arch_interrupt_stack(uintptr_t pointer);
 bool arch_interrupt_roundtrip(void);
-void interrupt_dispatch(struct interrupt_frame *frame);
+struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame);
+bool arch_task_probe(bool wait_for_peer);
 
 _Static_assert(sizeof(struct x86_tss) == 104, "64-bit TSS layout");
 _Static_assert(sizeof(struct x86_idt_gate) == 16, "64-bit interrupt gate layout");

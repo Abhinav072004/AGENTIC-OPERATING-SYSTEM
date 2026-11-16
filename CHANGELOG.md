@@ -1,5 +1,21 @@
 # Change log
 
+## 0.5.0 — 2026-11-17 (Week 5)
+
+- Add bounded PCB/TCB tables, monotonic task/process IDs, cooperative scheduling
+  and PIT-driven round robin with configurable tick quantum on one CPU.
+- Select full saved interrupt frames on yield/IRQ return, with actual assembly
+  checks of all 15 high-bit GPR values, RSP and DF across task switches.
+- Allocate four-page RW/NX task stacks with two guards, rollback partial spawn
+  failures and reclaim frames/tables after off-stack join.
+- Add exit status, blocking join/cycle rejection, cancellation, timed sleep and
+  an idle HLT path. Reject cancellation/exit of mutex owners.
+- Add FIFO mutex handoff, bounded semaphores and IRQ-preserving lifecycle/heap
+  edits. Kernel tasks and PCB groups continue sharing the kernel address space.
+- Add sanitized scheduling/ownership/failure tests and 12 BIOS/UEFI task checks,
+  including one-tick stress, real stack OOM, guard faults and runaway watchdog.
+  Normal readiness now requires PHASE5 and task resource recovery.
+
 ## 0.4.0 — 2026-11-15 (Week 4)
 
 - Load kernel-owned GDT, 256-entry IDT and 64-bit TSS; verify their actual CPU

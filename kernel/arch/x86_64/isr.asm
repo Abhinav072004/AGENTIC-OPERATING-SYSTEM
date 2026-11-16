@@ -54,10 +54,9 @@ interrupt_common:
     push r14
     push r15
     mov rdi, rsp
-    mov rbx, rsp                ; Callee-saved pointer to the original frame.
     and rsp, -16                ; Interrupted code may have either stack alignment.
     call interrupt_dispatch
-    mov rsp, rbx
+    mov rsp, rax                ; Dispatcher may select another task's saved frame.
     pop r15
     pop r14
     pop r13

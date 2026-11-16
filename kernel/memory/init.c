@@ -2,6 +2,7 @@
 #include "arch/x86_64/memory.h"
 #include "debug/log.h"
 #include "debug/panic.h"
+#include "arch/x86_64/io.h"
 
 extern unsigned char __kernel_start[], __text_start[], __rodata_start[];
 extern unsigned char __data_start[], __kernel_end[];
@@ -133,13 +134,17 @@ bool memory_bootstrap(const struct memory_boot *boot) {
 }
 
 void *kmalloc(size_t bytes) {
+    uint64_t flags = irq_save();
     void *result = heap_alloc(&kernel_heap, bytes);
     if (kernel_heap.corrupt) { PANIC("kernel heap metadata is corrupt"); }
+    irq_restore(flags);
     return result;
 }
 bool kfree(void *pointer) {
+    uint64_t flags = irq_save();
     bool result = heap_free(&kernel_heap, pointer);
     if (kernel_heap.corrupt) { PANIC("kernel heap metadata is corrupt"); }
+    irq_restore(flags);
     return result;
 }
 

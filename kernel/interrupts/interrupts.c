@@ -7,6 +7,7 @@
 #include "debug/panic.h"
 #include "memory/probe.h"
 #include <stdatomic.h>
+#include "scheduler/task.h"
 
 static struct pic8259 pic;
 static bool initialized;
@@ -72,7 +73,7 @@ static _Noreturn void fatal_exception(const struct interrupt_frame *frame) {
     cpu_halt();
 }
 
-void interrupt_dispatch(struct interrupt_frame *frame) {
+struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame) {
     if (frame->vector >= PIC_VECTOR_BASE && frame->vector < PIC_VECTOR_BASE + 16u) {
         unsigned int irq = (unsigned int)frame->vector - PIC_VECTOR_BASE;
         enum pic_delivery delivery = pic8259_delivery(&pic, irq);
@@ -85,7 +86,7 @@ void interrupt_dispatch(struct interrupt_frame *frame) {
         } else { ++unexpected_irqs; }
         if (!pic8259_eoi(&pic, irq, delivery)) { fatal_exception(frame); }
         if (irq == 0 && delivery == PIC_REAL) { ++timer_eois; }
-        return;
+        return irq == 0 && delivery == PIC_REAL ? scheduler_interrupt(frame, true) : frame;
     }
     if (frame->vector == 128 && returning_probe) {
         KASSERT((flags_read() & UINT64_C(0x600)) == 0); /* Live DF and IF clear. */
@@ -96,8 +97,9 @@ void interrupt_dispatch(struct interrupt_frame *frame) {
             frame->r11, frame->r12, frame->r13, frame->r14, frame->r15};
         for (size_t i = 0; i < 15; ++i) { KASSERT(values[i] == (UINT64_C(1) << 40) + i + 1); }
         ++software_returns;
-        return;
+        return frame;
     }
+    if (frame->vector == 129) { return scheduler_interrupt(frame, false); }
     fatal_exception(frame);
 }
 
@@ -113,16 +115,24 @@ void interrupts_self_test(void) {
     serial_write("AGENTICOS: IRET PASS\n");
 }
 
-void interrupts_timer_test(void) {
+uint32_t interrupts_timer_start(void) {
     KASSERT(initialized && (flags_read() & UINT64_C(0x200)) == 0 && pic.mask == UINT16_MAX);
     uint32_t divisor;
     KASSERT(pit8254_program(&ports, 100, &divisor));
     KASSERT(pic8259_mask(&pic, UINT16_C(0xfffe)));
+    return divisor;
+}
+void interrupts_timer_stop(void) {
+    KASSERT(initialized && (flags_read() & UINT64_C(0x200)) == 0);
+    KASSERT(pic8259_mask(&pic, UINT16_MAX));
+}
+void interrupts_timer_test(void) {
+    uint32_t divisor = interrupts_timer_start();
     while (ticks < 8) {
         /* Atomic STI/HLT pair prevents a wakeup being lost before sleep. */
         __asm__ volatile ("sti; hlt; cli" : : : "memory");
     }
-    KASSERT(pic8259_mask(&pic, UINT16_MAX));
+    interrupts_timer_stop();
     KASSERT(ticks == timer_eois && ticks == timer_saved_if && ticks >= 8 && unexpected_irqs == 0);
     klog(LOG_INFO, "timer", "PIT input_hz=%u divisor=%u ticks=%llu eoi=%llu saved_IF=1; PIC masked, IF=0",
          PIT_INPUT_HZ, divisor, (unsigned long long)ticks, (unsigned long long)timer_eois);

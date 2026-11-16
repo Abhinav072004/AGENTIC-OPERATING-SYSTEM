@@ -5,14 +5,15 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 4 / Phase 4 — interrupts and exceptions, verified in QEMU.**
-AgenticOS owns its GDT, 256-entry IDT and TSS, reports fatal CPU exceptions with
-saved registers, and handles PIC/PIT timer interrupts. It retains its physical
-allocator, protected page tables and guarded 256 KiB heap. Normal boot checks
-memory, interrupt return and at least eight timer IRQs, masks IRQs, reports
-`AGENTICOS: PHASE4 PASS`, then halts with IF clear.
-There is no AI runtime, shell, scheduler, filesystem, networking or desktop yet.
-Phase 5 (tasks and scheduling) awaits owner approval.
+**Current milestone: Week 5 / Phase 5 — tasks and scheduling, verified in QEMU.**
+AgenticOS runs cooperative and timer-preempted round-robin kernel tasks, with
+guarded stacks, task/process control blocks, sleep, join, cancellation, mutexes
+and semaphores. It retains its memory managers and owned GDT/IDT/TSS. Normal
+boot verifies task contexts, synchronization and resource recovery, masks IRQs,
+reports `AGENTICOS: PHASE5 PASS`, then halts with IF clear.
+Kernel tasks share one address space. User mode, isolated processes, syscalls,
+AI runtime, shell, filesystem, networking and desktop remain future work.
+Phase 6 (user mode and syscalls) awaits owner approval.
 
 ## Build and test
 
@@ -28,6 +29,7 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-foundation    # eight BIOS/UEFI log and fatal-path boots
 ./scripts/env.sh make test-memory        # RAM sizes, protection faults, OOM recovery
 ./scripts/env.sh make test-interrupts    # owned tables, timer, real faults and NMI
+./scripts/env.sh make test-scheduler     # contexts, synchronization, stress and failures
 ./scripts/env.sh make run                # BIOS, serial on terminal; Ctrl+C to exit
 ./scripts/env.sh make run-uefi           # UEFI equivalent
 ```
@@ -62,7 +64,8 @@ kernel/
   memory/                Physical allocator, heap, bootstrap and guest self-checks
   runtime/               Freestanding compiler memory primitives
   interrupts/            Exception dispatch, returning IRQs and timer self-check
-  scheduler/, process/   Reserved for Phase 5
+  scheduler/             Task states, guarded stacks, switching and synchronization
+  process/               Bounded kernel PCB groups; shared kernel address space
   syscall/               Reserved for Phase 6
   filesystem/            Reserved for Phase 7
 userland/
@@ -90,7 +93,9 @@ Reserved directories contain no claimed implementations.
 - [Kernel foundation: logging, panic and CPU discovery](docs/KERNEL_FOUNDATION.md)
 - [Memory management internals](docs/MEMORY.md)
 - [Interrupt and exception internals](docs/INTERRUPTS.md)
-- [Week 4 results and limitations](docs/reports/phase-4.md)
+- [Tasks and scheduling internals](docs/SCHEDULING.md)
+- [Week 5 results and limitations](docs/reports/phase-5.md)
+- [Historical Week 4 report](docs/reports/phase-4.md)
 - [Historical Week 3 report](docs/reports/phase-3.md)
 - [Historical Week 2 report](docs/reports/phase-2.md)
 - [Historical Week 1 report](docs/reports/phase-1.md) (original AstraOS branding)

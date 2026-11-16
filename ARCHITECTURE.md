@@ -16,16 +16,19 @@ NASM _start: kernel-owned stack, System V AMD64 calling convention
         |
 C17 kernel_main: serial/logging -> boot validation -> framebuffer -> CPUID
                 -> GDT/IDT/TSS + masked PIC -> PMM -> own CR3 -> heap
-                -> memory self-checks -> IRETQ check -> PIT IRQs -> masked HLT
+                -> memory/IRETQ/PIT checks -> task/synchronization checks
+                -> join/reclaim -> masked HLT
 ```
 
-This path is implemented through Phase 4. Limine provides the initial 64-bit
+This path is implemented through Phase 5. Limine provides the initial 64-bit
 environment and mappings. AgenticOS loads its own GDT/IDT/TSS before memory
 bootstrap, then builds fresh page tables and switches CR3. Bootloader metadata
 stays mapped/reserved conservatively. All descriptor and exception-stack storage
 lives in the kernel image and survives the address-space switch.
-Only the timer test enables maskable interrupts; it masks all PIC lines and
-clears IF before reporting final success and halting.
+The timer and task runs enable maskable interrupts, then mask all PIC lines
+and clear IF before final success. Task contexts are saved interrupt frames;
+the dispatcher returns the selected frame and the common stub restores it
+with IRETQ. PIC acknowledgement happens before a timer-driven context switch.
 
 The ELF links at `0xffffffff80000000`. Separate 4 KiB-aligned LOAD segments
 contain boot requests (RW), instructions (RX), constants (R), and data/stack
@@ -33,6 +36,9 @@ contain boot requests (RW), instructions (RX), constants (R), and data/stack
 not evidence of user-process isolation. Phase 3 also enforces these permissions
 in its own mappings; direct-map aliases of code/constants are read-only and NX.
 `.bss` contains a 64 KiB kernel stack.
+Worker stacks use separate four-page RW/NX mappings with lower/upper guards;
+PCB/TCB metadata lives in BSS. Every current PCB borrows the same CR3. There is
+no user address space or per-task privilege transition in this milestone.
 The linker preserves Limine request markers so the bootloader can find them.
 
 C targets `x86_64-unknown-none-elf`: freestanding, no libc, no dynamic loader,
@@ -87,13 +93,17 @@ are design requirements, not completed features.
 - `kernel/interrupts`: fatal exception diagnostics, PIC IRQ dispatch and bounded
   timer acceptance. Descriptors, ISR assembly and PIC/PIT port policy remain in
   `arch/x86_64`; controller/descriptor algorithms are host-testable.
+- `kernel/process`: bounded PCB groups, monotonic PIDs and retained thread counts.
+- `kernel/scheduler`: portable round-robin/state policy, stack ownership, task
+  lifecycle and IRQ-serialized mutex/semaphore operations. It can choose a new
+  saved context after a yield or timer IRQ; stack reclamation happens off-stack.
 - Future portable subsystems get their own directories; they call architecture
   helpers instead of spreading inline assembly throughout the kernel.
 - `userland`: future native programs that use AgenticOS syscalls, not host APIs.
 - `scripts`, `tools`, host tests: development utilities, not linked into the kernel.
   `tests/guest` is linked only into intentional memory/exception test images.
 
-There are no physical-device or production-security claims in Phase 4.
+There are no physical-device or production-security claims in Phase 5.
 Logging currently assumes one CPU with interrupts disabled; it is not an
 SMP/reentrant logging system. Timer IRQ handlers never log or allocate; their
 counters are reported with IF clear afterward. Fatal exceptions use bounded
@@ -102,5 +112,8 @@ double fault, NMI and machine check. This does not make all logger operations
 NMI-safe or provide arbitrary exception recovery.
 See [foundation internals](docs/KERNEL_FOUNDATION.md).
 Allocators and page-table edits also assume serialized bootstrap-CPU execution.
+The kmalloc/kfree wrappers preserve IF around heap edits; raw PMM/VMM users
+must still serialize access. Task lifecycle/stack edits run with IRQs disabled.
 See [memory internals and ownership](docs/MEMORY.md) for layout, tests and limits.
 See [interrupt internals](docs/INTERRUPTS.md) for frames, EOI and fatal behavior.
+See [scheduling internals](docs/SCHEDULING.md) for state, context and ownership.

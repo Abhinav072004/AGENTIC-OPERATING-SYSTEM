@@ -9,6 +9,10 @@
 #include "memory/init.h"
 #include "memory/probe.h"
 #include "interrupts/interrupts.h"
+#include "scheduler/task.h"
+#if CONFIG_SELFTEST == 17 || CONFIG_SELFTEST == 18
+_Noreturn void scheduler_failure_probe(unsigned int mode);
+#endif
 #if CONFIG_SELFTEST >= 8 && CONFIG_SELFTEST <= 15
 _Noreturn void interrupt_exception_probe(unsigned int mode);
 #endif
@@ -141,7 +145,14 @@ _Noreturn void kernel_main(void) {
     interrupt_exception_probe(CONFIG_SELFTEST);
 #endif
     interrupts_timer_test();
-    klog(LOG_INFO, "boot", "Interrupt foundation initialized; halting");
+    klog(LOG_INFO, "boot", "Interrupt foundation initialized");
     serial_write("AGENTICOS: PHASE4 PASS\n");
+    scheduler_init();
+#if CONFIG_SELFTEST == 17 || CONFIG_SELFTEST == 18
+    scheduler_failure_probe(CONFIG_SELFTEST);
+#endif
+    scheduler_self_test();
+    klog(LOG_INFO, "boot", "Task foundation initialized; halting");
+    serial_write("AGENTICOS: PHASE5 PASS\n");
     cpu_halt();
 }

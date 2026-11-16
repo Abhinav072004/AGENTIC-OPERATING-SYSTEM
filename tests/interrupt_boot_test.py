@@ -64,6 +64,7 @@ def validate_result(text, registers, scenario, elf, gdt_memory):
     if scenario == "normal":
         validate_diagnostics(text, "normal", "INFO")
         assert text.count("AGENTICOS: PHASE4 PASS") == 1
+        assert text.count("AGENTICOS: PHASE5 PASS") == 1
         assert text.count("AGENTICOS: TIMER PASS") == 1 and "EXCEPTION HALT" not in text
         timer = re.search(r"\[timer\] PIT input_hz=(\d+) divisor=(\d+) ticks=(\d+) eoi=(\d+) saved_IF=1; PIC masked, IF=0", text)
         assert timer and int(timer[1]) == 1193182 and int(timer[2]) == 11932
@@ -127,7 +128,7 @@ def run(args):
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
-                expected = "AGENTICOS: PHASE4 PASS\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
+                expected = "AGENTICOS: PHASE5 PASS\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
                 deadline = time.monotonic() + args.timeout
                 injected = False
                 while time.monotonic() < deadline:

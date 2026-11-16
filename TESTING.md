@@ -10,6 +10,7 @@ the rootless toolchain.
 ./scripts/env.sh make test-foundation
 ./scripts/env.sh make test-memory
 ./scripts/env.sh make test-interrupts
+./scripts/env.sh make test-scheduler
 ```
 
 ## Boot regressions and Phase 2 checks
@@ -47,7 +48,7 @@ Evidence lives in `build/tests/{bios,uefi}/`:
 - `registers.txt`: CPU state after success.
 - `screen.ppm`, `screen.png`: actual framebuffer capture, same image in two formats.
 
-These are generated files; [the Week 4 report](docs/reports/phase-4.md)
+These are generated files; [the Week 5 report](docs/reports/phase-5.md)
 records the accepted run. Tests return nonzero on failure. An intentional
 empty boot image was also checked to confirm timeout is a failing result.
 
@@ -103,7 +104,7 @@ sanitizer runtime's own symbols.
 
 | Scenario / BOOT_TEST | BIOS RAM | UEFI RAM | Result required |
 | --- | --- | --- | --- |
-| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 then PHASE4 PASS |
+| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 through PHASE5 PASS |
 | readonly / memory-ro | 128 MiB | 128 MiB | Real #PF error 0x3; write did not commit |
 | nx / memory-nx | 128 MiB | 128 MiB | Real #PF error 0x11; RIP is the NX address |
 | guard / memory-guard | 128 MiB | 128 MiB | Real #PF error 0x0 at the unmapped guard |
@@ -119,7 +120,7 @@ allocated root, WP/NXE set, LA57/IF clear, a kernel HLT, and the actual welcome
 capture after switching page tables. It records exact argv, ISO SHA-256, serial,
 registers and screenshots in `build/tests/memory-{firmware}-{scenario}-{RAM}m/`.
 The default image remains separate from deliberate failures. Normal/oom checks
-now wait for PHASE4 and the completed timer test; earlier phase markers alone
+now wait for PHASE5 and the completed task tests; earlier phase markers alone
 are insufficient for current normal readiness.
 
 The runner additionally rejects a readonly-fault image presented as a normal
@@ -173,7 +174,7 @@ at 128 MiB, one BIOS and one UEFI run per row:
 
 | BOOT_TEST | Required CPU result |
 | --- | --- |
-| none | Owned GDT/IDT/TSS, IRETQ register/flag preservation, at least eight timer IRQs/EOIs, PHASE4 PASS |
+| none | Owned GDT/IDT/TSS, IRETQ register/flag preservation, at least eight timer IRQs/EOIs, then task completion and PHASE5 PASS |
 | exception-divide | Real integer divide error, vector 0, error 0, exact fault RIP |
 | exception-ud | UD2, vector 6, error 0, exact fault RIP |
 | exception-gp | Invalid GDT selector, vector 13, error 0x28, exact fault RIP |
@@ -215,10 +216,66 @@ Manual check of the default normal ISO:
 ./scripts/env.sh python3 tests/interrupt_boot_test.py --firmware uefi
 ```
 
+## Tasks and scheduling (Week 5)
+
+The sanitized host binary executes PCB/state/stack policy, without privileged
+host context switching. It checks bounded tables and stale IDs, PCB thread
+ownership, circular fairness, one RUNNING task, cooperative versus two-tick
+preemption, sleep deadlines, wait-object isolation/FIFO wake, cancellation of a
+woken joiner, off-stack reap and counter/ID overflow. Stack callback tests fail
+at every one of four allocation and four mapping stages, prove exact cleanup,
+reject occupied guards, and allow physical frame zero.
+
+`make test-scheduler` builds four isolated images and performs **12 guest checks**:
+
+| BOOT_TEST | BIOS RAM | UEFI RAM | Required result |
+| --- | --- | --- | --- |
+| none | 32, 128, 512 MiB | 128, 256, 512 MiB | Full normal task checks and PHASE5 PASS |
+| scheduler-stress | 128 MiB | 128 MiB | Four task rounds, one-tick quantum, real stack OOM/recovery, PHASE5 PASS |
+| scheduler-guard | 128 MiB | 128 MiB | Real #PF at the task's unmapped lower guard, no PHASE5 |
+| scheduler-watchdog | 128 MiB | 128 MiB | Runaway worker hits the scheduler watchdog, no PHASE5 |
+
+Each normal round checks actual cooperative order ABABAB, live 64-bit GPR/RSP/
+CF/DF preservation across yield, and a non-yielding assembly probe that can
+finish only when another task runs through timer preemption. Three CPU-bound
+workers must progress with positive runtime ticks and at least three timer
+switches. The synchronization exercise forces mutex contention across a yield,
+verifies eight protected updates and two semaphore tokens, sleeps through idle,
+joins a spawned child, rejects a real two-task join cycle, cancels a blocked
+sleeper and rejects its stale handle. After joins, free-frame, page-table and
+mapping counts must exactly match the pre-task baseline.
+
+The initial capacity exercise fills all 15 worker slots, rejects another spawn
+without allocating more frames, verifies RW/NX stack mappings and both guards,
+then cancels/joins every task. The stress-only OOM exercise consumes every free
+physical frame, requires spawn to fail without publishing a TID, recovers all
+frames and then executes the full task rounds successfully.
+
+The guard fixture faults from a valid worker stack while reading
+`0xffffd20000006000`: vector 14/error 0 and the real CR2/saved RSP are checked.
+The watchdog fixture never yields and intentionally fails after its delivered-
+tick bound. These four BIOS/UEFI fatal checks are expected host test outcomes,
+not normal boot success. A guard-fault image presented as normal must exit 1
+even though it completed PHASE4; its output is
+`build/tests/scheduler-runner-negative.log`.
+
+The runner verifies actual control/descriptor registers and GDT busy memory,
+high-kernel HLT with IF clear, ordered diagnostics, exact phase/result counts,
+and an actual welcome capture. Its metadata includes exact QEMU argv/RAM and
+ISO/ELF hashes. Evidence is in
+`build/tests/scheduler-{firmware}-{scenario}-{RAM}m/`, with images isolated in
+`build/scheduler-scenarios/`. Known stale outputs are removed before each run;
+deadlines, clean QMP exit and owned-process cleanup remain required.
+
+```sh
+./scripts/env.sh python3 tests/scheduler_boot_test.py --firmware bios --memory 32
+./scripts/env.sh python3 tests/scheduler_boot_test.py --firmware uefi --memory 128
+```
+
 ## Limits
 
-The targets cover Phase 1–4 behavior. They do not verify general exception
+The targets cover Phase 1–5 behavior. They do not verify general exception
 recovery, user isolation, SMP/concurrent allocation, driver portability, AI,
 physical boot or Secure Boot. Actual machine-check delivery, APIC/IOAPIC,
-arbitrary NMI nesting and preemptive scheduling are not exercised or claimed.
+arbitrary NMI nesting, user-mode scheduling and FPU/SIMD contexts are not exercised or claimed.
 These require future milestones.

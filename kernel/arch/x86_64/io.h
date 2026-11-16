@@ -3,6 +3,17 @@
 
 #include <stdint.h>
 
+static inline uint64_t irq_save(void) {
+    uint64_t flags;
+    __asm__ volatile ("pushfq; pop %0; cli" : "=r"(flags) : : "memory");
+    return flags;
+}
+static inline void irq_restore(uint64_t flags) {
+    /* Restore the caller's IF without reintroducing a saved DF into C code. */
+    if ((flags & UINT64_C(0x200)) != 0) { __asm__ volatile ("sti" : : : "memory"); }
+    else { __asm__ volatile ("cli" : : : "memory"); }
+}
+
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }

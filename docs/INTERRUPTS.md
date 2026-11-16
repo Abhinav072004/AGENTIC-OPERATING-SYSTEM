@@ -2,8 +2,9 @@
 
 AgenticOS now owns the descriptor tables used after initial boot, handles
 returning timer IRQs, and prints fatal CPU exception diagnostics. It still has
-one bootstrap CPU and no scheduler or user process. Normal boot verifies this
-subsystem and returns to a masked, IF-clear halt; it does not launch tasks.
+one bootstrap CPU and no user process. Week 5 adds [kernel-task scheduling](SCHEDULING.md)
+after these checks. The final boot state is still a masked, IF-clear halt after
+the task exercises finish and their resources are reclaimed.
 
 ## GDT, TSS and IDT have different jobs
 
@@ -48,13 +49,15 @@ error codes additionally push one error slot. For other vectors the stub pushes
 zero; each stub then pushes its vector. The shared entry saves all 15 GPRs
 other than RSP, clears DF for the C ABI and aligns the call stack to 16 bytes.
 The resulting 176-byte frame layout is checked with C static assertions.
-Assembly retains the original frame pointer in a callee-saved register, so C
-alignment padding is not mistaken for saved registers on return.
+The C dispatcher returns a pointer to the saved frame to restore, so alignment
+padding is not mistaken for saved registers. Week 5 may return another task's
+frame; the stub changes RSP only after C finishes using the old stack.
 
 The error-code list includes vectors 8, 10–14, 17, 21, 29 and 30. Kernel code
 must not issue software INT against CPU error-code exception vectors: a software
-INT does not manufacture the CPU exception's error slot. The only returning
-internal software probe uses vector 128, gated by bootstrap test state.
+INT does not manufacture the CPU exception's error slot. The bootstrap register
+probe uses vector 128, gated by test state. Kernel-task yield/block/exit uses
+vector 129 while the scheduler is active; neither is a user-mode syscall gate.
 
 IRETQ restores the interrupted instruction, stack and flags. The normal self-check
 passes distinct values with bit 40 set in all 15 GPRs, verifies the C view of
@@ -65,7 +68,7 @@ return rather than only comparing descriptor encodings.
 The build uses no red zone and `-mgeneral-regs-only`: asynchronous stack frames
 must not overwrite a red zone, and these stubs do not preserve SIMD/FPU state.
 There is no SWAPGS/user entry path. Those contracts must change before adding
-user mode, SIMD execution, nested scheduling or context switching.
+user mode or SIMD execution; current task switches save only GPR contexts.
 
 ## PIC and PIT timer path
 
@@ -93,8 +96,9 @@ the controller a request is finished; IRETQ separately restores CPU execution.
 Neither substitutes for the other.
 
 The PIT counter can continue running after the PIC is masked; it does not wake
-the final IF-clear HLT. This is an interrupt acceptance test, not a calibrated
-wall clock, delay API, APIC backend or scheduling tick. If IRQs never arrive,
+the final IF-clear HLT. Week 5 reuses the timer during task runs for preemption
+and tick-based sleeps, with the same approximate rate. It is not a calibrated
+wall clock or APIC backend. If IRQs never arrive,
 the guest remains asleep and the host acceptance deadline fails the run.
 
 ## Fatal diagnostics and dedicated stacks
@@ -135,9 +139,10 @@ fatal scenarios on both BIOS and UEFI. They cover divide, invalid opcode,
 general protection, absent/read-only/NX page faults, double fault and injected
 NMI. QMP captures actual descriptor/control registers, GDT memory, screenshots,
 commands and artifact hashes. A fatal image that already passed PHASE3/IRET
-must fail the normal readiness checker; only PHASE4 completes normal boot.
+must fail the normal readiness checker. Current normal readiness additionally
+requires PHASE5 after task checks; PHASE4 records this subsystem's completion.
 
 These are tested QEMU single-CPU behaviors. APIC/IOAPIC, SMP, user isolation,
-recoverable exceptions, device-driver IRQ registration, preemptive tasks and
-physical hardware validation remain future work. Week 5 task and scheduler
-development is the next milestone, awaiting owner approval.
+recoverable exceptions, device-driver IRQ registration and physical hardware
+validation remain future work. Kernel-task preemption now exists; user mode
+and syscalls are the next milestone, awaiting owner approval.

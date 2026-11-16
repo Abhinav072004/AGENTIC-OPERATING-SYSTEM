@@ -24,11 +24,16 @@ SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/memory/pmm.c kernel/memory/heap.c kernel/memory/init.c \
     kernel/arch/x86_64/paging.c kernel/arch/x86_64/memory.c kernel/runtime/memory.c \
     kernel/arch/x86_64/descriptors.c kernel/arch/x86_64/interrupts.c \
-    kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c
-ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm
+    kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c \
+    kernel/process/process.c kernel/scheduler/core.c kernel/scheduler/stack.c \
+    kernel/scheduler/task.c kernel/scheduler/selftest.c
+ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm kernel/arch/x86_64/task_probe.asm
 ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
 SOURCES += tests/guest/memory_probe.c
 ASM_SOURCES += tests/guest/memory_probe_entry.asm
+endif
+ifneq ($(filter scheduler-guard scheduler-watchdog,$(BOOT_TEST)),)
+SOURCES += tests/guest/scheduler_probe.c
 endif
 ifneq ($(filter exception-divide exception-ud exception-gp exception-pf exception-df exception-nmi exception-ro exception-nx,$(BOOT_TEST)),)
 SOURCES += tests/guest/exception_probe.c
@@ -36,7 +41,7 @@ ASM_SOURCES += tests/guest/exception_probe_entry.asm
 endif
 OBJECTS := $(SOURCES:%.c=$(BUILD)/%.o) $(ASM_SOURCES:%.asm=$(BUILD)/%.o)
 
-.PHONY: all deps iso run run-uefi debug test test-debug test-foundation test-memory test-interrupts test-host check-elf clean distclean FORCE
+.PHONY: all deps iso run run-uefi debug test test-debug test-foundation test-memory test-interrupts test-scheduler test-host check-elf clean distclean FORCE
 all: iso
 
 $(LIMINE)/.ready: boot/limine.lock scripts/fetch-limine.sh
@@ -118,6 +123,11 @@ test-host: $(LIMINE)/.ready
 	    tests/interrupt_test.c kernel/arch/x86_64/descriptors.c \
 	    kernel/arch/x86_64/controllers.c -o $(BUILD)/tests/interrupt-test
 	$(BUILD)/tests/interrupt-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic \
+	    -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel \
+	    tests/scheduler_test.c kernel/process/process.c kernel/scheduler/core.c \
+	    kernel/scheduler/stack.c -o $(BUILD)/tests/scheduler-test
+	$(BUILD)/tests/scheduler-test
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi
@@ -130,6 +140,8 @@ test-memory:
 	$(PYTHON) tests/memory_runner_test.py
 test-interrupts:
 	$(PYTHON) tests/interrupt_matrix.py
+test-scheduler:
+	$(PYTHON) tests/scheduler_matrix.py
 
 clean:
 	rm -rf $(BUILD)

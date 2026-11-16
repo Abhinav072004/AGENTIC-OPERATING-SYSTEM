@@ -4,6 +4,7 @@ This walkthrough describes the original boot handoff. Week 3 subsequently
 replaces the initial mappings with kernel-owned paging and allocators; see
 [memory management](MEMORY.md) and its current limitations.
 Week 4 adds [owned descriptors, exception diagnostics and timer IRQs](INTERRUPTS.md).
+Week 5 extends the boot checks with [kernel tasks and scheduling](SCHEDULING.md).
 
 ## 1. Firmware finds a bootloader
 
@@ -72,8 +73,9 @@ UART fails the bootstrap assertion; output can be unavailable on that hardware.
 The original first-boot milestone printed its Phase 1 success marker and then
 executed `cli; hlt`. Week 2 completes its foundation diagnostics and prints
 `AGENTICOS: PHASE2 PASS`. The current kernel continues through memory and
-interrupt checks, prints `AGENTICOS: PHASE4 PASS`, then enters that halt loop.
-There is no scheduler or input handling yet. The boot test checks the serial
+interrupt and task checks, prints `AGENTICOS: PHASE5 PASS`, then enters that halt loop.
+Kernel-task scheduling now exists; interactive input and user programs remain
+future milestones. The boot test checks the serial
 marker, captures actual display pixels, and asks QEMU for CPU registers to
 verify the CPU is halted inside our higher-half kernel rather than rebooting.
 The host terminates QEMU through QMP after recording evidence.

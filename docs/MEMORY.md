@@ -5,6 +5,7 @@ heap. The normal kernel runs data-integrity checks, emits PHASE3 PASS and halts.
 These are foundations for later processes and isolated agents, not an AI runtime.
 Week 4 adds [kernel-owned descriptors and interrupt handling](INTERRUPTS.md);
 memory protection probes now use that common ISR path.
+Week 5 adds guarded [task stacks](SCHEDULING.md) and IRQ-preserving heap wrappers.
 
 ## Physical versus virtual memory
 
@@ -144,3 +145,8 @@ are not implemented. QEMU BIOS is verified at 32/128/512 MiB; the pinned UEFI
 path is verified at 128/256/512 MiB. UEFI 32/64 MiB experiments failed before
 kernel entry, including a Limine high-memory allocator panic at 64 MiB.
 Physical hardware and production security remain unverified.
+
+Preemptible kernel tasks must not edit raw PMM/VMM/heap state concurrently.
+Task lifecycle and stack operations disable IRQs around allocator/table edits;
+kmalloc/kfree now preserve IF while serializing their heap operations. This is
+single-CPU serialization, not an SMP lock or an allocation API for IRQ handlers.

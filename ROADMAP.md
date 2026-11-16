@@ -10,8 +10,8 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 2 | Initialization, INFO/WARNING/ERROR/DEBUG/PANIC logging, panic/assertions, CPU info, serial console, kernel configuration | Week 2 verified: BIOS/UEFI normal and fatal paths |
 | 3 | Boot memory map, physical allocator, paging/VMM, heap, mappings and protection; allocation/free and invalid-access tests | Week 3 verified: host sanitizers + BIOS/UEFI memory matrix |
 | 4 | GDT, IDT, ISRs, divide/invalid-opcode/GP/page-fault diagnostics, PIC/APIC as needed, measurable timer IRQs | Week 4 verified: PIC/PIT, host sanitizers + 18 BIOS/UEFI interrupt checks |
-| 5 | PCB/TCB, contexts, cooperative then preemptive round-robin tasks, termination and synchronization | Awaiting approval |
-| 6 | Ring 3, isolation, validated write/read/exit/getpid/yield syscalls and native user programs | Planned |
+| 5 | PCB/TCB, contexts, cooperative then preemptive round-robin tasks, termination and synchronization | Week 5 verified: sanitized policy/rollback tests + 12 BIOS/UEFI scheduler checks |
+| 6 | Ring 3, isolation, validated write/read/exit/getpid/yield syscalls and native user programs | Awaiting approval |
 | 7 | VFS, descriptors, RAM filesystem/initramfs, create/read/write/delete/list/rename; persistent format later | Planned |
 | 8 | Extend tested QEMU drivers: keyboard, timer, storage, mouse, PCI, network; serial/display are initial prerequisites | Planned |
 | 9 | Shell parsing, helpful errors, system/process/file commands; move shell into user space | Planned |
@@ -28,7 +28,9 @@ Phase 4 replaces the earlier test-only page-fault gate with kernel-owned
 GDT/IDT/TSS and a common ISR path. PIC/PIT is the tested single-CPU interrupt
 backend; APIC/SMP remain future work. Exceptions report and halt, while IRQs and
 the internal software round-trip check return with IRETQ. There is no general
-exception recovery or scheduler yet.
+exception recovery yet. Phase 5 adds guarded kernel-task stacks, PCB/TCB state,
+cooperative and timer-preempted round robin, sleep/join/cancel and synchronization.
+These kernel groups share CR3 and do not provide user-process isolation.
 
 ## Agentic milestones
 
