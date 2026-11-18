@@ -23,4 +23,10 @@ global user_shell_start, user_shell_end
 user_shell_start:
     incbin shell_file
 user_shell_end:
+align 16
+global user_nettest_start, user_nettest_end
+%strcat nettest_file USER_BUILD, "/nettest.elf"
+user_nettest_start:
+    incbin nettest_file
+user_nettest_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

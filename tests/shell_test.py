@@ -29,7 +29,7 @@ def run(firmware):
                 deadline = time.monotonic() + 40
                 stage = 0
                 commands = [
-                    ('uname', 'AgenticOS 0.9.0 x86_64'),
+                    ('uname', 'AgenticOS 0.10.0 x86_64'),
                     ('mkdir demo', '/home > '), ('cd demo', '/home/demo > '),
                     ('write "quoted file" "hello from serial"', '/home/demo > '),
                     ('cat "quoted file"', '\nhello from serial\n'),

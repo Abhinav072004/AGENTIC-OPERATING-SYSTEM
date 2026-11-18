@@ -1,5 +1,14 @@
 # Change log
 
+## 0.10.0 — 2026-11-18 (Week 10)
+
+- Add checked Ethernet/ARP/IPv4/ICMP/UDP and bounded TCP client/server sockets.
+- Implement copied socket syscalls, ownership, receive windows, one-segment
+  retransmission, FIN/EOF, reset/refusal and bounded timeout handling.
+- Release process sockets, limit ARP retries and preserve offline operation.
+- Add 30,000 malformed-packet sanitizer inputs and independent real e1000
+  BIOS/UEFI exchanges with dropped SYN/data, out-of-order data and failures.
+
 ## 0.9.0 — 2026-11-18 (Week 9)
 
 - Add a native CPL3 shell with quotes/escapes, path normalization, bounded lines,

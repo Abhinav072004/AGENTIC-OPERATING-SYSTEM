@@ -100,7 +100,7 @@ def run(args):
                         raise RuntimeError(f"QEMU exited early ({process.returncode})")
                     if args.scenario == "normal" and ("[ERROR]" in text or "[PANIC]" in text):
                         raise RuntimeError(text)
-                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE9 PASS\n"
+                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE10 PASS\n"
                     if expected in text:
                         break
                     time.sleep(0.05)

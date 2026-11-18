@@ -46,6 +46,7 @@ def main():
     parser.add_argument("--display", default="none",
                         help="QEMU display backend, e.g. none, gtk, vnc=127.0.0.1:1")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--network", choices=("none", "user"), default="none")
     parser.add_argument("--iso", type=Path, help="Boot a selected AgenticOS ISO")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="agenticos-run-") as workdir:
@@ -53,6 +54,8 @@ def main():
                       headless=args.headless or args.display == "none", debug=args.debug, iso=args.iso)
         if not args.headless and args.display != "none":
             cmd += ["-display", args.display]
+        if args.network == "user":
+            cmd += ["-netdev", "user,id=agenticos", "-device", "e1000,netdev=agenticos,mac=52:54:00:12:34:56"]
         cmd += ["-serial", "stdio"]
         try:
             return subprocess.call(cmd)

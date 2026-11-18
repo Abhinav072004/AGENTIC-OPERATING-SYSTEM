@@ -9,6 +9,8 @@
 #include <limits.h>
 #include "fs/syscall.h"
 #include "system.h"
+#include "net/stack.h"
+#include "net/syscall.h"
 
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
     KASSERT(task_is_user() && (frame->cs & 3u) == 3);
@@ -23,6 +25,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
              (unsigned long long)frame->cs, (unsigned long long)frame->ss,
              (void *)(uintptr_t)top, (void *)frame);
     }
+    network_poll();
     uint64_t number = frame->rax;
     if (number < SYS_COUNT) { ++process->calls[number]; }
     long result = SYS_ENOSYS;
@@ -65,6 +68,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
             }
         }
     } else if (number >= SYS_SYSTEM && number <= SYS_SLEEP) { result = system_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
+    else if (number >= SYS_NET_SOCKET && number <= SYS_NET_SHUTDOWN) { result = network_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else { result = fs_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     if (result < 0) { ++process->rejected_calls; }
     frame->rax = (uint64_t)result;
