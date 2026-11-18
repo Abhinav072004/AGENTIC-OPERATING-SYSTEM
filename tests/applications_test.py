@@ -8,7 +8,7 @@ import subprocess
 import tempfile
 import time
 from boot_test import QMP, validate_screen
-from desktop_test import Input, capture
+from desktop_test import Input, capture, input_progress
 from qemu import REPO, command
 
 
@@ -62,7 +62,7 @@ def run(firmware):
                         if 'expression' in locations:
                             (output/'failure-expression.bin').write_bytes(snapshot(locations['expression'],64))
                     raise TimeoutError(marker+'\n'+text[-4000:])
-                text=wait_for('GUI READY'); qmp=QMP(qmp_path); controls=Input(qmp)
+                text=wait_for('GUI READY'); qmp=QMP(qmp_path); controls=Input(qmp,input_progress(serial))
                 root=int(re.findall(r'case=/bin/desktop pid=\d+ cr3=0x([0-9a-f]+)',text)[-1],16)
                 locations=symbols(build/'user/desktop.elf')
                 opened = {1,2,3}

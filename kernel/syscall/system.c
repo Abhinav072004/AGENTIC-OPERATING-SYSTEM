@@ -10,6 +10,7 @@ long system_syscall(struct user_process *process, uint64_t number, uint64_t a, u
     if (number == SYS_SYSTEM) {
         struct system_info info = {.ticks = interrupts_ticks(), .free_frames = memory_frames()->free_frames,
             .managed_frames = memory_frames()->managed_frames, .fs_blocks = fs_used_blocks()};
+        _Static_assert(sizeof(AGENTICOS_VERSION) <= 16, "version must fit system record");
         const char version[] = AGENTICOS_VERSION; memcpy(info.version, version, sizeof(version));
         return copy_to_user(&process->space.vm, a, &info, sizeof(info)) ? 0 : SYS_EFAULT;
     }

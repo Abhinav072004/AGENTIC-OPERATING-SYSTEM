@@ -1,26 +1,20 @@
-# AGENTICOS
+# AgenticOS
 
 A custom, bootable x86_64 operating system, developed one verified milestone at
 a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 13 / Phase 13 — native applications, verified in QEMU.**
-Run `./scripts/env.sh make shell` for the interactive serial shell. It supports
-quoted commands, filesystem workflows, system/process inspection and native
-child execution with wait/cleanup. The normal ISO runs bounded acceptance,
-reports `AGENTICOS: PHASE13 PASS`, then halts. Files remain volatile.
-See [shell commands](docs/SHELL.md), [filesystem ABI](docs/FILESYSTEM.md),
-[drivers](docs/DRIVERS.md) and [network stack](docs/NETWORK.md) and [desktop](docs/DESKTOP.md) and [security policy](docs/SECURITY.md) and [applications](docs/APPLICATIONS.md) and [Week 13 evidence](docs/reports/phase-13.md).
-Native sockets add ARP, IPv4, ICMP, UDP and bounded TCP client/server behavior.
-Networking is optional and uses static addressing; see its documented limits.
-The native desktop adds movable windows, a launcher, taskbar, terminal, file
-manager and calculator, with checked drawing/input and a software back buffer.
-File ownership/modes, process capabilities, CPU/syscall budgets and recursive
-child cleanup are enforced. The experimental native ABI is now version 2.
-The app set adds an editor with atomic saves and draft protection, expression
-calculator, live monitor and saved appearance settings. All files remain in RAM.
-The owner has authorized sequential completion of the remaining roadmap.
+**Current milestone: Week 14 / Phase 14 — repeatable QEMU release.**
+The core OS has isolated native ELF processes, a RAM filesystem, tested device
+and network stacks, a serial shell and a graphical desktop with six applications.
+Capabilities, file permissions, bounded resources and fault containment protect
+the documented single-CPU target. Files/settings reset on reboot; native ABI is 2.
+
+Start with the [user guide](docs/USER_GUIDE.md) and [release procedure](docs/RELEASE.md).
+The default test ISO prints `AGENTICOS: READY` and halts; desktop/shell builds
+open an interactive session after acceptance checks. The owner has authorized
+continuing through the agent milestones after the core release.
 
 ## Build and test
 
@@ -44,6 +38,8 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-desktop       # real framebuffer and PS/2 desktop workflows
 ./scripts/env.sh make test-security      # native permissions, quotas and orphan cleanup
 ./scripts/env.sh make test-applications  # editor, calculator, monitor and settings
+./scripts/env.sh make test-regression    # full core regression suite
+./scripts/env.sh make release test-release # two clean builds and packaged ISO boots
 ./scripts/env.sh make desktop            # local GTK desktop; see docs for VNC
 ./scripts/env.sh make shell              # use the native serial shell
 ./scripts/env.sh make run                # BIOS, serial on terminal; Ctrl+C to exit
@@ -59,9 +55,9 @@ backend installed:
 ./scripts/env.sh python3 tools/qemu.py --display gtk
 ```
 
-No disk image or host block device is attached. Only the ISO and, for UEFI,
-a temporary copy of firmware variables are used. Physical installation is out
-of scope for this milestone.
+Standard runs attach the ISO and private UEFI variables. Driver acceptance uses
+a generated scratch disk. Host block devices are not attached. Physical testing
+needs a separate decision; see [the procedure](docs/HARDWARE_TESTING.md).
 
 Use the default **128 MiB or more for UEFI**. The pinned UEFI/Limine boot path
 fails before kernel entry at 32/64 MiB; BIOS is separately verified at 32 MiB.
@@ -76,7 +72,7 @@ kernel/
   arch/x86_64/           Entry/ISRs, descriptors, PIC/PIT, UART, paging and CPU
   cpu/                   Portable CPU information decoding
   debug/                 Bounded formatting, log levels, panic and assertions
-  drivers/display/       Bounded framebuffer welcome renderer
+  drivers/               Display, PS/2, PCI, legacy ATA and e1000 drivers
   memory/                Physical allocator, heap, bootstrap and guest self-checks
   runtime/               Freestanding compiler memory primitives
   interrupts/            Exception dispatch, returning IRQs and timer self-check
@@ -84,15 +80,17 @@ kernel/
   process/               PCB groups and retained thread/address-space metadata
   user/                  Bounded ELF loader, private mappings, copies and containment
   syscall/               Shared native ABI and validated console/process dispatch
-  fs/                    RAM VFS, per-process descriptors and checked file syscalls
+  fs/                    RAM VFS, descriptors, permissions and atomic replacement
+  net/                   Ethernet, ARP, IPv4, ICMP, UDP and bounded TCP sockets
+  gui/                   Clipped rendering, supervisor back buffer and display ABI
+  security/              Capabilities and native containment/resource checks
 userland/
-  runtime/               Native entry, linker and syscall wrappers
-  applications/          Native hello and user/isolation check programs
-  shell/                 Future interactive native shell
+  runtime/               Native entry, linker, syscall/command/app/window libraries
+  applications/          Native shell/desktop and acceptance programs
   agents/                Future isolated agent services
 libraries/               Reserved for shared kernel/user libraries
 scripts/                 Setup, dependency fetching, tool activation, GDB commands
-tools/                   QEMU launcher and validated configuration generator
+tools/                   QEMU, configuration and repeatable release tooling
 tests/                   Sanitized host, ELF, guest, protection and debugger checks
   guest/                 Deliberate fault probes; excluded from normal ISO
 docs/                    Setup, internal explanations and milestone reports
@@ -107,14 +105,17 @@ Reserved directories contain no claimed implementations.
 ## Read next
 
 - [Architecture and AI boundary](ARCHITECTURE.md)
-- [Milestones and approval gates](ROADMAP.md)
+- [Milestones and completion evidence](ROADMAP.md)
 - [How the first boot works](docs/FIRST_BOOT.md)
 - [Kernel foundation: logging, panic and CPU discovery](docs/KERNEL_FOUNDATION.md)
 - [Memory management internals](docs/MEMORY.md)
 - [Interrupt and exception internals](docs/INTERRUPTS.md)
 - [Tasks and scheduling internals](docs/SCHEDULING.md)
 - [User mode and syscall ABI](docs/USER_MODE.md)
-- [Week 6 results and limitations](docs/reports/phase-6.md)
+- [Current release evidence](docs/reports/phase-14.md)
+- [Native applications](docs/APPLICATIONS.md)
+- [Security boundary and limits](docs/SECURITY.md)
+- [Historical Week 6 report](docs/reports/phase-6.md)
 - [Historical Week 5 report](docs/reports/phase-5.md)
 - [Historical Week 4 report](docs/reports/phase-4.md)
 - [Historical Week 3 report](docs/reports/phase-3.md)

@@ -17,6 +17,12 @@ static char files_path[128] = "/home", file_text[1024];
 static struct fs_entry entries[16]; static size_t entry_count; static int selected = -1;
 static char expression[64], calculation[64] = "Enter an integer expression";
 static void trace(const char *message) { (void)user_write(1, message, text_length(message)); }
+static void pointer_trace(void) {
+    char message[64] = "GUI pointer "; size_t length = text_length(message);
+    int64_t values[3] = {mouse_x,mouse_y,(int64_t)buttons};
+    for (size_t i = 0; i < 3; ++i) { length += text_number(message+length,values[i]); if (i != 2) { message[length++] = ' '; message[length] = 0; } }
+    trace(message);
+}
 static void rect(int x, int y, int width, int height, uint32_t color) { struct gui_draw draw = {.operation = GUI_RECT, .x = x, .y = y, .width = width, .height = height, .color = color}; if (user_call(SYS_GUI_DRAW, (uintptr_t)&draw, 0, 0) != 0) { failed = true; } }
 static void label(int x, int y, const char *text, uint32_t color) { struct gui_draw draw = {.operation = GUI_TEXT, .x = x, .y = y, .color = color}; text_copy(draw.text, text, sizeof(draw.text)); if (user_call(SYS_GUI_DRAW, (uintptr_t)&draw, 0, 0) != 0) { failed = true; } }
 static const char *title(unsigned int app) { return app == APP_TERMINAL ? "Terminal" : app == APP_FILES ? "Files" : app == APP_CALCULATOR ? "Calculator" : app == APP_EDITOR ? "Editor" : app == APP_MONITOR ? "Monitor" : "Settings"; }
@@ -143,8 +149,8 @@ int user_main(uint64_t pid, uint64_t mode) {
     while (!quitting && !failed) {
         struct input_event event; bool changed = false;
         while (user_call(SYS_GUI_INPUT,(uintptr_t)&event,0,0) == 1) {
-            if (event.kind == INPUT_KEY) { key_event(event.key,event.modifiers); changed = true; }
-            else if (event.kind == INPUT_MOUSE) { mouse_x += event.dx; mouse_y += event.dy; if (mouse_x < 0) { mouse_x = 0; } if (mouse_x >= wm.width) { mouse_x = wm.width-1; } if (mouse_y < 0) { mouse_y = 0; } if (mouse_y >= wm.height) { mouse_y = wm.height-1; } bool pressed = (event.buttons & 1u) != 0; if (pressed && (buttons & 1u) == 0) { click(); } int dragging = wm.dragging; wm_drag(&wm,mouse_x,mouse_y,pressed); if (dragging >= 0 && !pressed) { trace("GUI drag completed"); } buttons = event.buttons; changed = true; }
+            if (event.kind == INPUT_KEY) { key_event(event.key,event.modifiers); trace("GUI key processed"); changed = true; }
+            else if (event.kind == INPUT_MOUSE) { mouse_x += event.dx; mouse_y += event.dy; if (mouse_x < 0) { mouse_x = 0; } if (mouse_x >= wm.width) { mouse_x = wm.width-1; } if (mouse_y < 0) { mouse_y = 0; } if (mouse_y >= wm.height) { mouse_y = wm.height-1; } bool pressed = (event.buttons & 1u) != 0; if (pressed && (buttons & 1u) == 0) { click(); } int dragging = wm.dragging; wm_drag(&wm,mouse_x,mouse_y,pressed); if (dragging >= 0 && !pressed) { trace("GUI drag completed"); } buttons = event.buttons; pointer_trace(); changed = true; }
         }
         bool monitor_open = false; for (unsigned int i = 0; i < WM_MAX; ++i) { if (wm.windows[i].live && wm.windows[i].app == APP_MONITOR) { monitor_open = true; } }
         static uint64_t last_refresh; struct system_info clock; if (monitor_open && user_call(SYS_SYSTEM,(uintptr_t)&clock,0,0) == 0 && clock.ticks-last_refresh >= 100) { monitor_refresh(); last_refresh = clock.ticks; changed = true; }

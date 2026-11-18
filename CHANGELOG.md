@@ -1,5 +1,17 @@
 # Change log
 
+## 0.14.0 — 2026-11-18 (Week 14)
+
+- Centralize VERSION, validate its ABI bounds and introduce final READY semantics.
+- Normalize compiler metadata, make NASM output repeatable, fix ISO timestamps
+  and GPT identity, and ship compact kernel/native images with separate symbols.
+- Build twice from scratch, compare ELF/ISO bytes, reproduce the ISO from a
+  relocated source checkout, and package checksums/provenance/tool metadata.
+- Add exact packaged BIOS/UEFI boot/desktop/exit validation and a full regression
+  target; synchronize UI tests with guest input/frame acknowledgments.
+- Document user operation, release procedure, supported limits and separately
+  authorized physical testing. No physical installation is performed.
+
 ## 0.13.0 — 2026-11-18 (Week 13)
 
 - Add native Editor, Monitor and Settings and extend Files/Terminal integration.

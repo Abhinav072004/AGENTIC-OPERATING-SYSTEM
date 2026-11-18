@@ -100,7 +100,7 @@ def run(args):
                         raise RuntimeError(f"QEMU exited early ({process.returncode})")
                     if args.scenario == "normal" and ("[ERROR]" in text or "[PANIC]" in text):
                         raise RuntimeError(text)
-                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE13 PASS\n"
+                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: READY\n"
                     if expected in text:
                         break
                     time.sleep(0.05)
@@ -136,6 +136,8 @@ def run(args):
                     assert text.count("AGENTICOS: SECURITY POLICY PASS") == 1
                     assert text.count("AGENTICOS: PHASE13 PASS") == 1
                     assert text.count("AGENTICOS: APPLICATION USER PASS") == 1
+                    assert text.count("AGENTICOS: PHASE14 PASS") == 1
+                    assert text.count("AGENTICOS: READY") == 1
                     if args.minimum_level in ("DEBUG", "INFO"):
                         assert "native application checks passed" in text
                     if args.minimum_level in ("DEBUG", "INFO"):

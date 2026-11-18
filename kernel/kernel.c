@@ -181,6 +181,8 @@ _Noreturn void kernel_main(void) {
     desktop_boot(response->framebuffers[0]);
     security_self_test();
     applications_boot(response->framebuffers[0]);
+    serial_write("AGENTICOS: PHASE14 PASS\n");
+    serial_write("AGENTICOS: READY\n");
 #if CONFIG_SELFTEST == 23
     shell_session();
 #elif CONFIG_SELFTEST == 25

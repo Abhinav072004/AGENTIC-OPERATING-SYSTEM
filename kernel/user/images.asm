@@ -2,8 +2,8 @@ bits 64
 section .rodata
 align 16
 global user_hello_start, user_hello_end, user_probe_start, user_probe_end
-%strcat hello_file USER_BUILD, "/hello.elf"
-%strcat probe_file USER_BUILD, "/probe.elf"
+%strcat hello_file USER_BUILD, "/hello-image.elf"
+%strcat probe_file USER_BUILD, "/probe-image.elf"
 user_hello_start:
     incbin hello_file
 user_hello_end:
@@ -13,19 +13,19 @@ user_probe_start:
 user_probe_end:
 align 16
 global user_fstest_start, user_fstest_end
-%strcat fstest_file USER_BUILD, "/fstest.elf"
+%strcat fstest_file USER_BUILD, "/fstest-image.elf"
 user_fstest_start:
     incbin fstest_file
 user_fstest_end:
 align 16
 global user_shell_start, user_shell_end
-%strcat shell_file USER_BUILD, "/shell.elf"
+%strcat shell_file USER_BUILD, "/shell-image.elf"
 user_shell_start:
     incbin shell_file
 user_shell_end:
 align 16
 global user_nettest_start, user_nettest_end
-%strcat nettest_file USER_BUILD, "/nettest.elf"
+%strcat nettest_file USER_BUILD, "/nettest-image.elf"
 user_nettest_start:
     incbin nettest_file
 user_nettest_end:
@@ -37,7 +37,7 @@ user_desktop_start:
 user_desktop_end:
 align 16
 global user_security_start, user_security_end
-%strcat security_file USER_BUILD, "/security.elf"
+%strcat security_file USER_BUILD, "/security-image.elf"
 user_security_start:
     incbin security_file
 user_security_end:

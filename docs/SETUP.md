@@ -33,9 +33,10 @@ toolchain for arbitrary Linux distributions.
 Limine's archive SHA-256 is pinned in `boot/limine.lock`. The fetcher checks it
 before extraction and builds the supplied host `limine` utility with `cc`.
 Do not switch headers independently of the bootloader. Transitive Debian
-dependencies are resolved from signed trixie repositories. These commands
-reproduce the build procedure; bit-for-bit ISO reproducibility is not yet
-claimed because timestamps and transitive package availability may vary.
+dependencies are resolved from signed trixie repositories. Week 14 adds a fixed source epoch, normalized debug paths and ISO metadata.
+`make release` verifies byte-identical ELF/ISO output from two clean builds with
+this toolchain; package availability and arbitrary other toolchains remain outside
+that reproducibility claim. See [RELEASE.md](RELEASE.md).
 
 ## Prepared cloud environment
 

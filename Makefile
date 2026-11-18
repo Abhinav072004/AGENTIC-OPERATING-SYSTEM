@@ -8,9 +8,11 @@ LIMINE := .cache/limine
 QEMU_DISPLAY ?= gtk
 KERNEL_LOG_LEVEL ?= INFO
 BOOT_TEST ?= none
+export SOURCE_DATE_EPOCH ?= 1794960000
+ISO_DATE = $(shell $(PYTHON) tools/iso_date.py)
 .DELETE_ON_ERROR:
 
-CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g \
+CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffile-prefix-map=$(CURDIR)=. -fdebug-compilation-dir=. -ffile-prefix-map=$(abspath $(BUILD))=build \
     -ffreestanding -fno-builtin -fno-stack-protector -fno-pic -fno-pie \
     -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-omit-frame-pointer \
     -m64 -mcmodel=kernel -mno-red-zone -mgeneral-regs-only \
@@ -55,7 +57,7 @@ $(LIMINE)/.ready: boot/limine.lock scripts/fetch-limine.sh
 deps: $(LIMINE)/.ready
 
 FORCE:
-$(BUILD)/config.h: FORCE tools/configure.py
+$(BUILD)/config.h: FORCE tools/configure.py VERSION
 	$(PYTHON) tools/configure.py --output $@ --log-level $(KERNEL_LOG_LEVEL) --selftest $(BOOT_TEST)
 
 $(BUILD)/%.o: %.c Makefile $(BUILD)/config.h $(LIMINE)/.ready
@@ -64,19 +66,20 @@ $(BUILD)/%.o: %.c Makefile $(BUILD)/config.h $(LIMINE)/.ready
 
 $(BUILD)/%.o: %.asm Makefile
 	@mkdir -p $(@D)
-	$(NASM) -f elf64 -g -F dwarf $< -o $@
+	$(NASM) --reproducible -f elf64 -g -F dwarf $< -o $@
 
-USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffreestanding -fno-builtin \
+USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffile-prefix-map=$(CURDIR)=. -fdebug-compilation-dir=. -ffile-prefix-map=$(abspath $(BUILD))=build -ffreestanding -fno-builtin \
     -fno-stack-protector -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables \
     -mno-red-zone -mgeneral-regs-only -Wall -Wextra -Werror -Wpedantic -Wconversion \
     -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime -MMD -MP
-.SECONDARY: $(BUILD)/user/hello.o $(BUILD)/user/probe.o $(BUILD)/user/fstest.o $(BUILD)/user/shell.o $(BUILD)/user/nettest.o $(BUILD)/user/desktop.o $(BUILD)/user/security.o
+USER_PROGRAMS := hello probe fstest shell nettest desktop security
+.SECONDARY: $(addprefix $(BUILD)/user/,$(addsuffix .o,$(USER_PROGRAMS))) $(addprefix $(BUILD)/user/,$(addsuffix .elf,$(USER_PROGRAMS)))
 $(BUILD)/user/%.o: userland/applications/%.c userland/runtime/syscall.h kernel/syscall/abi.h kernel/user/elf.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 $(BUILD)/user/start.o: userland/runtime/start.asm Makefile
 	@mkdir -p $(@D)
-	$(NASM) -f elf64 -g -F dwarf $< -o $@
+	$(NASM) --reproducible -f elf64 -g -F dwarf $< -o $@
 $(BUILD)/user/text.o: userland/runtime/text.c userland/runtime/text.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
@@ -88,22 +91,22 @@ $(BUILD)/user/runtime-%.o: userland/runtime/%.c Makefile
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 $(BUILD)/user/shell.elf: $(BUILD)/user/runtime-commands.o
 $(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o $(BUILD)/user/runtime-apps.o
-$(BUILD)/user/desktop-image.elf: $(BUILD)/user/desktop.elf
-	objcopy --strip-debug $< $@
+$(BUILD)/user/%-image.elf: $(BUILD)/user/%.elf
+	objcopy --strip-all $< $@
 $(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o $(BUILD)/user/text.o $(BUILD)/user/runtime-memory.o userland/runtime/linker.ld
 	$(LD) -nostdlib -static -z max-page-size=0x1000 -z noexecstack --build-id=none \
 	    -T userland/runtime/linker.ld $(filter %.o,$^) -o $@
-$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(BUILD)/user/hello.elf $(BUILD)/user/probe.elf $(BUILD)/user/fstest.elf $(BUILD)/user/shell.elf $(BUILD)/user/nettest.elf $(BUILD)/user/desktop-image.elf $(BUILD)/user/security.elf Makefile
+$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(addprefix $(BUILD)/user/,$(addsuffix -image.elf,$(USER_PROGRAMS))) Makefile
 	@mkdir -p $(@D)
-	$(NASM) -f elf64 -g -F dwarf -DUSER_BUILD='"$(abspath $(BUILD))/user"' $< -o $@
+	$(NASM) --reproducible -f elf64 -g -F dwarf -DUSER_BUILD='"$(abspath $(BUILD))/user"' $< -o $@
 
 $(BUILD)/kernel.elf: $(OBJECTS) kernel/arch/x86_64/linker.ld
 	$(LD) $(LDFLAGS) $(OBJECTS) -o $@
 
-$(BUILD)/agenticos.iso: $(BUILD)/kernel.elf boot/limine.conf Makefile $(LIMINE)/.ready
+$(BUILD)/agenticos.iso: $(BUILD)/kernel.elf boot/limine.conf tools/iso_date.py Makefile $(LIMINE)/.ready
 	rm -rf $(BUILD)/iso-root
 	mkdir -p $(BUILD)/iso-root/boot/limine $(BUILD)/iso-root/EFI/BOOT
-	cp $(BUILD)/kernel.elf $(BUILD)/iso-root/boot/kernel.elf
+	objcopy --strip-all $(BUILD)/kernel.elf $(BUILD)/iso-root/boot/kernel.elf
 	cp boot/limine.conf $(BUILD)/iso-root/boot/limine/limine.conf
 	cp $(LIMINE)/limine-bios.sys $(LIMINE)/limine-bios-cd.bin \
 	    $(LIMINE)/limine-uefi-cd.bin $(BUILD)/iso-root/boot/limine/
@@ -114,7 +117,9 @@ $(BUILD)/agenticos.iso: $(BUILD)/kernel.elf boot/limine.conf Makefile $(LIMINE)/
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
 	    -no-emul-boot -boot-load-size 4 -boot-info-table \
 	    --efi-boot boot/limine/limine-uefi-cd.bin -efi-boot-part \
-	    --efi-boot-image --protective-msdos-label $(BUILD)/iso-root -o $@
+	    --efi-boot-image --protective-msdos-label \
+	    --modification-date=$(ISO_DATE) --set_all_file_dates $(ISO_DATE) \
+	    --gpt_disk_guid 16ac02d1-0b37-4451-9174-1ce472ef9d6a $(BUILD)/iso-root -o $@
 	$(LIMINE)/limine bios-install $@
 iso: $(BUILD)/agenticos.iso
 
@@ -236,3 +241,11 @@ test-security: iso
 .PHONY: test-applications
 test-applications:
 	$(PYTHON) tests/applications_test.py
+
+.PHONY: release test-release test-regression
+release:
+	$(PYTHON) tools/release.py
+test-release:
+	$(PYTHON) tests/release_test.py
+test-regression:
+	$(MAKE) test test-debug test-foundation test-memory test-interrupts test-scheduler test-user test-drivers test-shell test-network test-desktop test-security test-applications

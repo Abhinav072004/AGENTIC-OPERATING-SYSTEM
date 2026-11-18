@@ -1,130 +1,59 @@
 # AgenticOS architecture
 
-## Boot and kernel
+AgenticOS has a custom C17/NASM x86_64 kernel booted by pinned Limine. The tested
+machine is one QEMU q35 CPU. The kernel owns memory, descriptors, interrupts,
+scheduling, files, device/network state and capability checks. Native apps use
+an explicit ELF/syscall ABI and do not import a host runtime.
 
-The initial design is a small modular monolithic kernel: drivers and memory
-management share kernel address space. Phase 6 native programs execute in
-isolated user address spaces; future agents will build on those services.
-This keeps early boot learnable
-and avoids the IPC complexity of a microkernel before processes exist.
-
-```text
-BIOS / UEFI firmware
-        |
-Limine v8.7.0: ELF loading, initial page tables, framebuffer discovery
-        |
-NASM _start: kernel-owned stack, System V AMD64 calling convention
-        |
-C17 kernel_main: serial/logging -> boot validation -> framebuffer -> CPUID
-                -> GDT/IDT/TSS + masked PIC -> PMM -> own CR3 -> heap
-                -> memory/IRETQ/PIT checks -> task/synchronization checks
-                -> native ELF -> CPL3/syscalls/isolation -> join/reclaim -> HLT
+```mermaid
+flowchart TB
+  Boot[Limine BIOS or UEFI] --> Kernel[Kernel initialization and acceptance]
+  Kernel --> Memory[PMM / page tables / guarded stacks / heap]
+  Kernel --> Tasks[PIC/PIT / scheduler / private user roots]
+  Apps[Native shell and desktop apps at CPL3] --> Gate[Validated syscall gate and copied buffers]
+  Gate --> Policy[Capabilities / UID and ownership checks / budgets]
+  Policy --> VFS[RAM VFS and descriptors]
+  Policy --> Devices[PCI / PS2 / ATA / e1000]
+  Policy --> Network[Bounded IPv4 and sockets]
+  Policy --> Display[Clipped drawing and supervisor back buffer]
+  Tasks --> Apps
 ```
 
-This path is implemented through Phase 6. Limine provides the initial 64-bit
-environment and mappings. AgenticOS loads its own GDT/IDT/TSS before memory
-bootstrap, then builds fresh page tables and switches CR3. Bootloader metadata
-stays mapped/reserved conservatively. All descriptor and exception-stack storage
-lives in the kernel image and survives the address-space switch.
-The timer and task runs enable maskable interrupts, then mask all PIC lines
-and clear IF before final success. Task contexts are saved interrupt frames;
-the dispatcher returns the selected frame and the common stub restores it
-with IRETQ. PIC acknowledgement happens before a timer-driven context switch.
+The kernel's upper mappings are supervisor-only. Every user process owns its
+lower page tree and leaf pages; upper kernel subtrees are borrowed for the
+kernel owner's lifetime. Code is RX, data RW/NX, and stacks have guards.
+TSS.RSP0 and CR3 follow task selection. Every ISR saves a normalized register
+frame; scheduling selects the frame returned by IRETQ. FPU/SIMD is deliberately
+trapped because this ABI does not save that state. The target is integer code.
 
-The ELF links at `0xffffffff80000000`. Separate 4 KiB-aligned LOAD segments
-contain boot requests (RW), instructions (RX), constants (R), and data/stack
-(RW). No segment is both writable and executable. This is a layout property,
-not evidence of user-process isolation. Phase 3 also enforces these permissions
-in its own mappings; direct-map aliases of code/constants are read-only and NX.
-`.bss` contains a 64 KiB kernel stack.
-Worker stacks use separate four-page RW/NX mappings with lower/upper guards;
-PCB/TCB metadata lives in BSS. Kernel groups share CR3; user PCBs own private
-lower-half page trees and borrow supervisor-only upper mappings. User code is
-RX, constants RO/NX and data/stack RW/NX. The scheduler selects CR3 and TSS.RSP0
-before returning to a user frame. CPL3 exceptions use the task's kernel stack.
-The linker preserves Limine request markers so the bootloader can find them.
+Syscalls check the actual running process/root and return context. User pointers
+are validated over their entire range and copied through stable physical aliases.
+Each process owns descriptors and sockets. Exit/fault/quota/cancel recursively
+cancels descendants; off-current reaping releases their roots, leaves, stacks,
+descriptors, sockets and PCB/TCB records. Fixed pools and optional CPU/syscall
+budgets bound resources. See USER_MODE.md, SCHEDULING.md and SECURITY.md in docs.
 
-C targets `x86_64-unknown-none-elf`: freestanding, no libc, no dynamic loader,
-no stack protector runtime, no red zone, and no SIMD register use. Interrupt
-stubs save all 15 general-purpose registers and restore with IRETQ. FPU/MMX/SIMD
-trap in user mode until their context support exists; native programs use the
-same GPR-only compiler contract. C++ is unnecessary here.
+The VFS stores RAM inodes/data, owner/mode/search/sticky permissions, independent
+file offsets and open-unlink lifetimes. Exclusive temporary creation and atomic
+regular-file replacement support safe editor saves. Files, settings and runtime
+records are volatile. ATA is a tested block driver, not a mounted persistent
+filesystem. PS/2 and e1000 use bounded polling; the network stack implements a
+small static IPv4/socket subset documented in NETWORK.md.
 
-## Agentic design direction — planned, not implemented
+The desktop's window model and built-in apps run in one private user process.
+Its explicitly granted display capability permits copied drawing/input commands;
+it never receives a framebuffer mapping. A supervisor back buffer is zeroed,
+presented and freed at session exit. Built-in views share their process; child
+programs launched by Terminal receive private roots and lose display permission.
 
-AI functionality belongs above the kernel. An inference crash, malformed model
-response, or unavailable remote service should not crash the OS or acquire
-kernel privileges. A model generates a proposed action; an ordinary OS service
-must authorize and validate the action before execution.
+The core roadmap is followed by owner-authorized agent milestones: typed intent
+and tools, an independent action broker, a bounded user-space worker, a selected
+inference backend and reviewable shell/desktop workflows. Model text must remain
+data and cannot grant privileges or directly become kernel execution. The OS
+remains useful offline. Current agent status is recorded in ROADMAP.md.
 
-```text
-Native shell / desktop / user intent
-                  |
-User-space agent planner and inference provider
-                  |
-Policy-checked tool broker + explicit grants + action/audit history
-                  |
-Validated system calls: processes, files, devices, networking
-                  |
-Custom AgenticOS kernel
-```
-
-Future agent milestones build on user mode and validated syscalls, then require
-filesystem permissions, stronger resource/security policies and networking.
-Prefer deterministic tools with bounded arguments. Credentials should remain
-in a trusted service, separate from model context. Destructive or externally
-visible operations need explicit policy and user intent; model text is never
-executable authority. The exact local model/runtime and cloud providers remain
-design decisions for a later approved milestone, not boot dependencies.
-
-Do not describe the current kernel as an AI runtime. Agent workflow recovery,
-offline operation, cancellation, audit persistence and capability enforcement
-are design requirements, not completed features.
-
-## Boundaries
-
-- `arch/x86_64`: register/port operations, assembly entry, architecture layout.
-- `kernel/drivers`: device-specific implementation. Current display consumes
-  borrowed Limine metadata without allocating or freeing it.
-- `kernel/kernel.c`: initialization order and boot validation.
-- `kernel/debug`: bounded formatting, sequence-numbered log records and fatal
-  diagnostics; no allocator or libc dependency.
-- `kernel/cpu`: CPUID decoding behind an injectable reader; actual register
-  access and privileged panic-stop instructions stay in `arch/x86_64`.
-- `kernel/memory`: portable frame/heap algorithms and ordered memory bootstrap.
-  Four-level table encoding and CR3/WP/NX/TLB operations stay in `arch/x86_64`.
-- `kernel/runtime`: compiler-required memory functions, with no host libc link.
-- `kernel/interrupts`: fatal exception diagnostics, PIC IRQ dispatch and bounded
-  timer acceptance. Descriptors, ISR assembly and PIC/PIT port policy remain in
-  `arch/x86_64`; controller/descriptor algorithms are host-testable.
-- `kernel/process`: bounded PCB groups, monotonic PIDs and retained thread counts.
-- `kernel/user`: ELF validation, owned user pages, checked physical-alias copies,
-  privilege-return policy, user fault containment and process-root ownership.
-- `kernel/syscall`: native `int 0x82` ABI, bounded console I/O and process calls.
-- `kernel/scheduler`: portable round-robin/state policy, stack ownership, task
-  lifecycle and IRQ-serialized mutex/semaphore operations. It can choose a new
-  saved context after a yield or timer IRQ; stack reclamation happens off-stack.
-- Future portable subsystems get their own directories; they call architecture
-  helpers instead of spreading inline assembly throughout the kernel.
-- `userland/runtime`, `userland/applications`: native ELF startup, inline syscall
-  wrappers, hello and isolation programs. The kernel embeds their images until
-  a filesystem is available; no host runtime executes inside the guest.
-- `scripts`, `tools`, host tests: development utilities, not linked into the kernel.
-  `tests/guest` is linked only into intentional memory/exception test images.
-
-There are no physical-device or production-security claims in Phase 6.
-Logging currently assumes one CPU with interrupts disabled; it is not an
-SMP/reentrant logging system. The normal timer IRQ path updates counters and
-selects contexts without logging/allocation; error paths may emit bounded
-diagnostics. Counters are reported with IF clear afterward. Fatal exceptions use bounded
-serial diagnostics, a lock-free reentry guard and dedicated IST stacks for
-double fault, NMI and machine check. This does not make all logger operations
-NMI-safe or provide arbitrary exception recovery.
-See [foundation internals](docs/KERNEL_FOUNDATION.md).
-Allocators and page-table edits also assume serialized bootstrap-CPU execution.
-The kmalloc/kfree wrappers preserve IF around heap edits; raw PMM/VMM users
-must still serialize access. Task lifecycle/stack edits run with IRQs disabled.
-See [memory internals and ownership](docs/MEMORY.md) for layout, tests and limits.
-See [interrupt internals](docs/INTERRUPTS.md) for frames, EOI and fatal behavior.
-See [scheduling internals](docs/SCHEDULING.md) for state, context and ownership.
-See [user mode and the syscall ABI](docs/USER_MODE.md) for the current boundary.
+Build/release tooling lives on the host. It is separate from the guest kernel:
+source versions, normalized paths, compact runtime images and fixed ISO metadata
+produce repeatable images; QEMU and independent host tests collect evidence.
+Physical hardware, SMP, production security, persistent storage, TLS and broad
+hardware compatibility are outside the verified core release.

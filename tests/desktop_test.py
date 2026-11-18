@@ -39,9 +39,29 @@ def capture(qmp, output, name):
     return pixels
 
 
+def input_progress(serial):
+    def progress(offset,expected):
+        if offset is None: return len(serial.read_text(errors='replace'))
+        marker = 'GUI key processed' if expected is None else 'GUI pointer '+' '.join(str(value) for value in expected)
+        deadline=time.monotonic()+8
+        while time.monotonic()<deadline:
+            text=serial.read_text(errors='replace')
+            assert '[PANIC]' not in text and '[ERROR]' not in text,text[-3000:]
+            tail=text[offset:]; acknowledgment=tail.find('text="'+marker+'"')
+            if 'AGENTICOS: SESSION EXIT' in tail: return
+            if acknowledgment>=0 and 'text="GUI frame presented"' in tail[acknowledgment:]: return
+            time.sleep(0.01)
+        raise TimeoutError('Guest input acknowledgment missing: '+marker+'\n'+text[-3000:])
+    return progress
+
+
 class Input:
-    def __init__(self, qmp): self.qmp, self.x, self.y = qmp, 400, 300
-    def events(self, events): self.qmp.execute('input-send-event', {'events': events}); time.sleep(0.025)
+    def __init__(self, qmp, progress=None): self.qmp, self.x, self.y, self.pressed, self.progress = qmp, 400, 300, False, progress
+    def events(self, events, expected=None):
+        token = self.progress(None,None) if self.progress else None
+        self.qmp.execute('input-send-event', {'events': events})
+        if self.progress: self.progress(token,expected)
+        else: time.sleep(0.025)
     def key(self, code, shift=False):
         def event(key, down): return {'type': 'key', 'data': {'down': down, 'key': {'type': 'qcode', 'data': key}}}
         events = ([event('shift', True)] if shift else []) + [event(code, True), event(code, False)] + ([event('shift', False)] if shift else [])
@@ -55,8 +75,8 @@ class Input:
     def move(self, x, y):
         while (self.x, self.y) != (x,y):
             dx,dy = max(-45,min(45,x-self.x)), max(-45,min(45,y-self.y))
-            self.events([{'type':'rel','data':{'axis':'x','value':dx}},{'type':'rel','data':{'axis':'y','value':dy}}]); self.x += dx; self.y += dy
-    def button(self, down): self.events([{'type':'btn','data':{'button':'left','down':down}}])
+            self.events([{'type':'rel','data':{'axis':'x','value':dx}},{'type':'rel','data':{'axis':'y','value':dy}}],(self.x+dx,self.y+dy,int(self.pressed))); self.x += dx; self.y += dy
+    def button(self, down): self.events([{'type':'btn','data':{'button':'left','down':down}}],(self.x,self.y,int(down))); self.pressed=down
     def click(self,x,y): self.move(x,y); self.button(True); self.button(False)
 
 
@@ -79,7 +99,7 @@ def run(firmware):
                         if marker in text[after:]: return text
                         time.sleep(0.025)
                     raise TimeoutError(marker+'\n'+text[-4000:])
-                wait_for('GUI READY'); live_start=len(serial.read_text()); qmp = QMP(qmp_path); controls = Input(qmp)
+                wait_for('GUI READY'); live_start=len(serial.read_text()); qmp = QMP(qmp_path); controls = Input(qmp,input_progress(serial))
                 initial = capture(qmp,output,'desktop-initial')
                 controls.type('6*7\n'); wait_for('GUI calc=42',live_start)
                 controls.move(550,250); controls.button(True); controls.move(450,180); controls.button(False); wait_for('GUI drag completed')
@@ -87,7 +107,7 @@ def run(firmware):
                 assert pixels[(177*800+600)*3:(177*800+600)*3+3] == bytes.fromhex('285da3')
                 assert pixels != initial
                 controls.click(350,100); controls.click(350,178); wait_for('GUI file opened'); capture(qmp,output,'desktop-files')
-                controls.click(100,100); controls.type("write /home/gui-note 'keyboard file'\n"); wait_for('GUI terminal command')
+                before=len(serial.read_text()); controls.click(100,100); wait_for("GUI focus",before); controls.type("write /home/gui-note 'keyboard file'\n"); wait_for('GUI terminal command')
                 controls.type('cat /home/gui-note\n'); controls.type('run /bin/hello\n')
                 time.sleep(0.3)
                 text = serial.read_text(); assert text.count('text="GUI terminal command"') == 3

@@ -129,7 +129,7 @@ def run(args):
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
-                expected = "AGENTICOS: PHASE13 PASS\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
+                expected = "AGENTICOS: READY\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
                 deadline = time.monotonic() + args.timeout
                 injected = False
                 while time.monotonic() < deadline:

@@ -20,7 +20,7 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 11 | Native framebuffer renderer, cursor, movable windows, taskbar, launcher, terminal/file manager/calculator | Week 11 verified: drawing/model sanitizers + real BIOS/UEFI graphical workflows |
 | 12 | Permissions, syscall validation, process isolation, resource cleanup, error recovery and security review | Week 12 verified: UID/capability/quotas/orphan/malformed-call checks, sanitizers and regressions; limits reviewed |
 | 13 | Native editor, calculator, file manager, system monitor, terminal and settings | Week 13 verified: real BIOS/UEFI apps, exact file/preference readback, full-quota save protection and sanitizers |
-| 14 | Repeatable release builds, BIOS/UEFI regression coverage, manuals and explicit hardware-test procedure | Planned |
+| 14 | Repeatable release builds, BIOS/UEFI regression coverage, manuals and explicit hardware-test procedure | Week 14 verified: complete core regression, identical clean builds/relocated ISO and exact packaged BIOS/UEFI boots |
 
 Some foundations overlap: minimal UART and framebuffer output are needed to
 verify Phase 1. Phase 2 adds the diagnostic framework; general device drivers
