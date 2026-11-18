@@ -41,6 +41,7 @@ static void descriptors_test(void) {
     assert(x86_interrupt_tables_build(&tables, handlers, stacks[0], stacks));
     assert(tables.gdt[0] == 0 && tables.gdt[1] == UINT64_C(0x00af9a000000ffff));
     assert(tables.gdt[2] == UINT64_C(0x00cf92000000ffff));
+    assert(tables.gdt[5] == UINT64_C(0x00affa000000ffff) && tables.gdt[6] == UINT64_C(0x00cff2000000ffff));
     uint64_t descriptor = tables.gdt[3];
     uint64_t base = ((descriptor >> 16) & UINT64_C(0xffffff)) |
                     ((descriptor >> 32) & UINT64_C(0xff000000)) | (tables.gdt[4] << 32);
@@ -55,7 +56,7 @@ static void descriptors_test(void) {
         const struct x86_idt_gate *gate = &tables.idt[i];
         uint64_t address = gate->low | ((uint64_t)gate->middle << 16) | ((uint64_t)gate->high << 32);
         assert(address == handlers[i] && gate->selector == X86_KERNEL_CODE);
-        assert(gate->attributes == 0x8e && gate->reserved == 0);
+        assert(gate->attributes == (i == X86_SYSCALL_VECTOR ? 0xee : 0x8e) && gate->reserved == 0);
         assert(gate->ist == (i == 8 ? 1 : i == 2 ? 2 : i == 18 ? 3 : 0));
     }
     assert(strcmp(x86_exception_name(0), "divide error") == 0);

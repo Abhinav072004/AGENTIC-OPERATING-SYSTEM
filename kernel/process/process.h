@@ -9,7 +9,7 @@
 struct process_control {
     uint64_t pid, address_space;
     unsigned int threads;
-    bool live;
+    bool live, isolated;
     char name[PROCESS_NAME_BYTES];
 };
 struct process_table {

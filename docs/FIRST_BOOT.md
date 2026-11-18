@@ -5,6 +5,7 @@ replaces the initial mappings with kernel-owned paging and allocators; see
 [memory management](MEMORY.md) and its current limitations.
 Week 4 adds [owned descriptors, exception diagnostics and timer IRQs](INTERRUPTS.md).
 Week 5 extends the boot checks with [kernel tasks and scheduling](SCHEDULING.md).
+Week 6 adds [ring-3 native programs and checked syscalls](USER_MODE.md).
 
 ## 1. Firmware finds a bootloader
 
@@ -73,9 +74,9 @@ UART fails the bootstrap assertion; output can be unavailable on that hardware.
 The original first-boot milestone printed its Phase 1 success marker and then
 executed `cli; hlt`. Week 2 completes its foundation diagnostics and prints
 `AGENTICOS: PHASE2 PASS`. The current kernel continues through memory and
-interrupt and task checks, prints `AGENTICOS: PHASE5 PASS`, then enters that halt loop.
-Kernel-task scheduling now exists; interactive input and user programs remain
-future milestones. The boot test checks the serial
+interrupt, task and native-user checks, prints `AGENTICOS: PHASE6 PASS`, then
+enters that halt loop. Interactive input/shell behavior remains future work;
+the current read syscall is a nonblocking console primitive. The boot test checks the serial
 marker, captures actual display pixels, and asks QEMU for CPU registers to
 verify the CPU is halted inside our higher-half kernel rather than rebooting.
 The host terminates QEMU through QMP after recording evidence.
@@ -83,8 +84,9 @@ The host terminates QEMU through QMP after recording evidence.
 ## Current limits
 
 - Kernel-owned paging, allocators, GDT/IDT/TSS and timer IRQs are now implemented.
-- Exceptions report and halt; there is no general recovery, SMP or user process.
-- No input, files, persistent storage, networking, model runtime or desktop.
+- Kernel exceptions report and halt; ordinary user faults terminate that process.
+- Native user programs and nonblocking console input exist; general recovery,
+  SMP, files, persistent storage, networking, model runtime and desktop do not.
 - Only QEMU `q35`/`qemu64`/standard VGA/COM1 were tested; no physical hardware.
 - Maskable interrupts run during the timer check and are disabled at final halt;
   NMI and machine-check handlers remain fatal, with separate stacks.

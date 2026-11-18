@@ -2,15 +2,17 @@
 
 AgenticOS now runs multiple kernel tasks on the bootstrap CPU. They have
 independent guarded stacks and saved CPU contexts, and can cooperate or be
-preempted by the PIT. All tasks still run at ring 0 in one kernel address space.
-This milestone supplies the scheduling machinery needed before user mode and
-syscalls; it does not provide isolated native applications or an AI runtime.
+preempted by the PIT. This chapter describes the Week 5 kernel-thread contract.
+Week 6 reuses these contexts for [ring-3 native programs](USER_MODE.md), adding
+private user mappings and checked syscalls. There is no AI runtime yet.
 
 ## PCB and TCB ownership
 
 A process control block (PCB) identifies a group and its retained thread count.
-Four PCB slots include the permanent kernel group, PID 1. Every group borrows
-the same kernel CR3; destroying a group does not destroy the address space.
+Four PCB slots include the permanent kernel group, PID 1. Kernel groups borrow
+the same kernel CR3; user PCBs bind an owned user root. The user-process manager
+destroys that root/pages before releasing the PCB; bare task_join is reserved
+for kernel tasks, and user reaping goes through that manager.
 Thread counts include zombies until their resources are joined and reclaimed.
 A group cannot be destroyed while any retained thread remains.
 
@@ -61,9 +63,10 @@ yield: it spins with those values live until another task sets a signal. That
 task can run only after a real timer-driven switch. DF is restored for the
 interrupted assembly and cleared before returning to C.
 
-There is no per-task CR3 switch, user/kernel entry path, SWAPGS, FPU/SIMD context
-or per-task TSS RSP0 update yet. All current interrupts occur at CPL 0. Those
-contracts must be extended before introducing user-mode threads.
+Week 6 selects a user PCB's CR3 and sets TSS.RSP0 to its kernel stack before
+returning to CPL 3. Shared supervisor upper mappings keep both the old and new
+kernel stacks accessible while the dispatcher finishes switching. FS/GS bases
+are zero; FPU/SIMD instructions trap until their contexts are implemented.
 
 ## Round robin, sleeps and idle
 
@@ -129,7 +132,7 @@ restore. Saving IF, disabling local interrupts and restoring the prior IF makes
 updates atomic with respect to this CPU's timer handler. Nested callers that
 already had IF clear leave it clear. This is not an SMP spinlock or an NMI lock.
 The heap's kmalloc/kfree wrappers now use the same rule; raw PMM/VMM/heap clients
-must still serialize their operations. IRQ dispatch does not allocate or log.
+must still serialize their operations. The normal IRQ path does not allocate or log.
 Ordinary task logging is not made reentrant by these changes.
 
 Mutexes track one owner and wake the oldest blocked waiter by wait ticket.
@@ -167,7 +170,8 @@ fixtures must never emit PHASE5. A guard-fault image that passed PHASE4 must fai
 normal readiness. Existing memory, interrupt, diagnostic and debugger suites
 remain regression checks. See [the acceptance report](reports/phase-5.md).
 
-Scheduling ends in the documented final halt after boot self-checks. There is
-no persistent service loop, user program, syscall API, process memory isolation,
-APIC/SMP balancing, priority scheduler or AI runtime. Physical hardware remains
-unverified. Week 6 user mode and syscalls await owner approval.
+Scheduling ends in the documented final halt after kernel and user self-checks.
+There is no persistent service loop, APIC/SMP balancing, priority scheduler or
+AI runtime. User mode, private lower mappings and the basic syscall ABI now
+exist. Physical hardware remains unverified; the filesystem milestone awaits
+owner approval.

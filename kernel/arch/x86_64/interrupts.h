@@ -8,6 +8,9 @@
 #define X86_KERNEL_CODE 8u
 #define X86_KERNEL_DATA 16u
 #define X86_TSS_SELECTOR 24u
+#define X86_USER_CODE 43u
+#define X86_USER_DATA 51u
+#define X86_SYSCALL_VECTOR 130u
 #define X86_IST_BYTES 16384u
 
 /* Matches isr.asm, including the long-mode CPU's saved SS:RSP. */
@@ -29,7 +32,7 @@ struct x86_idt_gate {
 } __attribute__((packed));
 struct x86_table_register { uint16_t limit; uint64_t base; } __attribute__((packed));
 struct x86_interrupt_tables {
-    uint64_t gdt[5];
+    uint64_t gdt[7];
     struct x86_tss tss;
     struct x86_idt_gate idt[256];
 };
@@ -40,6 +43,9 @@ bool x86_interrupt_tables_build(struct x86_interrupt_tables *tables,
                                const uint64_t ist_tops[3]);
 const char *x86_exception_name(uint64_t vector);
 bool arch_interrupts_init(void);
+void arch_interrupts_kernel_stack(uint64_t top);
+uint64_t arch_interrupts_rsp0(void);
+void arch_user_cpu_policy(void);
 unsigned int arch_interrupt_stack(uintptr_t pointer);
 bool arch_interrupt_roundtrip(void);
 struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame);

@@ -10,6 +10,10 @@
 #include "memory/probe.h"
 #include "interrupts/interrupts.h"
 #include "scheduler/task.h"
+#include "user/user.h"
+#if CONFIG_SELFTEST == 21
+_Noreturn void user_boot_failure_probe(void);
+#endif
 #if CONFIG_SELFTEST == 17 || CONFIG_SELFTEST == 18
 _Noreturn void scheduler_failure_probe(unsigned int mode);
 #endif
@@ -152,7 +156,13 @@ _Noreturn void kernel_main(void) {
     scheduler_failure_probe(CONFIG_SELFTEST);
 #endif
     scheduler_self_test();
-    klog(LOG_INFO, "boot", "Task foundation initialized; halting");
+    klog(LOG_INFO, "boot", "Task foundation initialized");
     serial_write("AGENTICOS: PHASE5 PASS\n");
+#if CONFIG_SELFTEST == 21
+    user_boot_failure_probe();
+#endif
+    user_self_test();
+    klog(LOG_INFO, "boot", "User foundation initialized; halting");
+    serial_write("AGENTICOS: PHASE6 PASS\n");
     cpu_halt();
 }

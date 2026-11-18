@@ -3,8 +3,9 @@
 ## Boot and kernel
 
 The initial design is a small modular monolithic kernel: drivers and memory
-management will share kernel address space, while applications and agents will
-eventually execute in isolated user processes. This keeps early boot learnable
+management share kernel address space. Phase 6 native programs execute in
+isolated user address spaces; future agents will build on those services.
+This keeps early boot learnable
 and avoids the IPC complexity of a microkernel before processes exist.
 
 ```text
@@ -17,10 +18,10 @@ NASM _start: kernel-owned stack, System V AMD64 calling convention
 C17 kernel_main: serial/logging -> boot validation -> framebuffer -> CPUID
                 -> GDT/IDT/TSS + masked PIC -> PMM -> own CR3 -> heap
                 -> memory/IRETQ/PIT checks -> task/synchronization checks
-                -> join/reclaim -> masked HLT
+                -> native ELF -> CPL3/syscalls/isolation -> join/reclaim -> HLT
 ```
 
-This path is implemented through Phase 5. Limine provides the initial 64-bit
+This path is implemented through Phase 6. Limine provides the initial 64-bit
 environment and mappings. AgenticOS loads its own GDT/IDT/TSS before memory
 bootstrap, then builds fresh page tables and switches CR3. Bootloader metadata
 stays mapped/reserved conservatively. All descriptor and exception-stack storage
@@ -37,14 +38,17 @@ not evidence of user-process isolation. Phase 3 also enforces these permissions
 in its own mappings; direct-map aliases of code/constants are read-only and NX.
 `.bss` contains a 64 KiB kernel stack.
 Worker stacks use separate four-page RW/NX mappings with lower/upper guards;
-PCB/TCB metadata lives in BSS. Every current PCB borrows the same CR3. There is
-no user address space or per-task privilege transition in this milestone.
+PCB/TCB metadata lives in BSS. Kernel groups share CR3; user PCBs own private
+lower-half page trees and borrow supervisor-only upper mappings. User code is
+RX, constants RO/NX and data/stack RW/NX. The scheduler selects CR3 and TSS.RSP0
+before returning to a user frame. CPL3 exceptions use the task's kernel stack.
 The linker preserves Limine request markers so the bootloader can find them.
 
 C targets `x86_64-unknown-none-elf`: freestanding, no libc, no dynamic loader,
 no stack protector runtime, no red zone, and no SIMD register use. Interrupt
-stubs save all 15 general-purpose registers and restore with IRETQ; SIMD context
-management remains future work. C++ is unnecessary here.
+stubs save all 15 general-purpose registers and restore with IRETQ. FPU/MMX/SIMD
+trap in user mode until their context support exists; native programs use the
+same GPR-only compiler contract. C++ is unnecessary here.
 
 ## Agentic design direction — planned, not implemented
 
@@ -65,15 +69,15 @@ Validated system calls: processes, files, devices, networking
 Custom AgenticOS kernel
 ```
 
-Future agent milestones require user mode, validated syscalls, filesystem
-permissions, process/resource isolation and, for hosted inference, networking.
+Future agent milestones build on user mode and validated syscalls, then require
+filesystem permissions, stronger resource/security policies and networking.
 Prefer deterministic tools with bounded arguments. Credentials should remain
 in a trusted service, separate from model context. Destructive or externally
 visible operations need explicit policy and user intent; model text is never
 executable authority. The exact local model/runtime and cloud providers remain
 design decisions for a later approved milestone, not boot dependencies.
 
-Do not describe the current kernel as an AI runtime. Scheduling, recovery,
+Do not describe the current kernel as an AI runtime. Agent workflow recovery,
 offline operation, cancellation, audit persistence and capability enforcement
 are design requirements, not completed features.
 
@@ -94,19 +98,25 @@ are design requirements, not completed features.
   timer acceptance. Descriptors, ISR assembly and PIC/PIT port policy remain in
   `arch/x86_64`; controller/descriptor algorithms are host-testable.
 - `kernel/process`: bounded PCB groups, monotonic PIDs and retained thread counts.
+- `kernel/user`: ELF validation, owned user pages, checked physical-alias copies,
+  privilege-return policy, user fault containment and process-root ownership.
+- `kernel/syscall`: native `int 0x82` ABI, bounded console I/O and process calls.
 - `kernel/scheduler`: portable round-robin/state policy, stack ownership, task
   lifecycle and IRQ-serialized mutex/semaphore operations. It can choose a new
   saved context after a yield or timer IRQ; stack reclamation happens off-stack.
 - Future portable subsystems get their own directories; they call architecture
   helpers instead of spreading inline assembly throughout the kernel.
-- `userland`: future native programs that use AgenticOS syscalls, not host APIs.
+- `userland/runtime`, `userland/applications`: native ELF startup, inline syscall
+  wrappers, hello and isolation programs. The kernel embeds their images until
+  a filesystem is available; no host runtime executes inside the guest.
 - `scripts`, `tools`, host tests: development utilities, not linked into the kernel.
   `tests/guest` is linked only into intentional memory/exception test images.
 
-There are no physical-device or production-security claims in Phase 5.
+There are no physical-device or production-security claims in Phase 6.
 Logging currently assumes one CPU with interrupts disabled; it is not an
-SMP/reentrant logging system. Timer IRQ handlers never log or allocate; their
-counters are reported with IF clear afterward. Fatal exceptions use bounded
+SMP/reentrant logging system. The normal timer IRQ path updates counters and
+selects contexts without logging/allocation; error paths may emit bounded
+diagnostics. Counters are reported with IF clear afterward. Fatal exceptions use bounded
 serial diagnostics, a lock-free reentry guard and dedicated IST stacks for
 double fault, NMI and machine check. This does not make all logger operations
 NMI-safe or provide arbitrary exception recovery.
@@ -117,3 +127,4 @@ must still serialize access. Task lifecycle/stack edits run with IRQs disabled.
 See [memory internals and ownership](docs/MEMORY.md) for layout, tests and limits.
 See [interrupt internals](docs/INTERRUPTS.md) for frames, EOI and fatal behavior.
 See [scheduling internals](docs/SCHEDULING.md) for state, context and ownership.
+See [user mode and the syscall ABI](docs/USER_MODE.md) for the current boundary.

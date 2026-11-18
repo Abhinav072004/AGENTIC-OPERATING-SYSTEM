@@ -20,6 +20,8 @@ bool x86_interrupt_tables_build(struct x86_interrupt_tables *tables,
     memset(tables, 0, sizeof(*tables));
     tables->gdt[1] = UINT64_C(0x00af9a000000ffff); /* Present ring-0 long-mode code. */
     tables->gdt[2] = UINT64_C(0x00cf92000000ffff); /* Present ring-0 writable data. */
+    tables->gdt[5] = UINT64_C(0x00affa000000ffff); /* Ring-3 long-mode code. */
+    tables->gdt[6] = UINT64_C(0x00cff2000000ffff); /* Ring-3 writable data. */
     tables->tss.rsp[0] = rsp0;
     tables->tss.iomap_base = sizeof(struct x86_tss); /* Beyond limit: no I/O bitmap. */
     for (size_t i = 0; i < 3; ++i) { tables->tss.ist[i] = ist_tops[i]; }
@@ -35,7 +37,7 @@ bool x86_interrupt_tables_build(struct x86_interrupt_tables *tables,
         gate->middle = (uint16_t)(handler >> 16);
         gate->high = (uint32_t)(handler >> 32);
         gate->selector = X86_KERNEL_CODE;
-        gate->attributes = 0x8e; /* Present interrupt gate, DPL 0; clears live IF. */
+        gate->attributes = (uint8_t)(i == X86_SYSCALL_VECTOR ? 0xee : 0x8e);
         gate->ist = (uint8_t)(i == 8 ? 1 : i == 2 ? 2 : i == 18 ? 3 : 0);
     }
     return true;

@@ -13,7 +13,7 @@ import time
 from boot_test import QMP, validate_diagnostics, validate_screen
 from qemu import REPO, command
 
-FAULTS = {"divide": (0, 0), "ud": (6, 0), "gp": (13, 0x28), "pf": (14, 0),
+FAULTS = {"divide": (0, 0), "ud": (6, 0), "gp": (13, 0x38), "pf": (14, 0),
           "df": (8, 0), "nmi": (2, 0), "ro": (14, 3), "nx": (14, 0x11)}
 
 
@@ -24,9 +24,9 @@ def register(text, name):
 
 
 def validate_tables(text, registers, gdt_memory):
-    match = re.search(r"\[interrupt\] GDT=0x([0-9a-f]+) limit=39 IDT=0x([0-9a-f]+) limit=4095 CS=0x8 SS=0x10 TR=0x18", text)
+    match = re.search(r"\[interrupt\] GDT=0x([0-9a-f]+) limit=55 IDT=0x([0-9a-f]+) limit=4095 CS=0x8 SS=0x10 TR=0x18", text)
     assert match, "No owned descriptor-table report"
-    for name, group, limit in (("GDT", 1, 39), ("IDT", 2, 4095)):
+    for name, group, limit in (("GDT", 1, 55), ("IDT", 2, 4095)):
         actual = re.search(r"\b" + name + r"=\s*([0-9a-f]+)\s+([0-9a-f]+)", registers)
         assert actual and int(actual[1], 16) == int(match[group], 16) and int(actual[2], 16) == limit
         assert int(actual[1], 16) >= 0xFFFFFFFF80000000
@@ -35,7 +35,7 @@ def validate_tables(text, registers, gdt_memory):
     assert re.search(r"\bTR\s*=0018\s+[0-9a-f]+\s+00000067.*TSS64-(?:avl|busy)", registers)
     words = [int(word, 16) for line in gdt_memory.splitlines() if ":" in line
              for word in re.findall(r"0x[0-9a-f]+", line.split(":", 1)[1])]
-    assert len(words) == 5 and ((words[3] >> 40) & 0xff) == 0x8b, "LTR did not mark the TSS busy"
+    assert len(words) == 7 and ((words[3] >> 40) & 0xff) == 0x8b, "LTR did not mark the TSS busy"
     assert re.search(r"\bCS\s*=0008\s+", registers)
     assert "dedicated IST: double-fault=1 NMI=2 machine-check=3" in text
 
@@ -65,6 +65,7 @@ def validate_result(text, registers, scenario, elf, gdt_memory):
         validate_diagnostics(text, "normal", "INFO")
         assert text.count("AGENTICOS: PHASE4 PASS") == 1
         assert text.count("AGENTICOS: PHASE5 PASS") == 1
+        assert text.count("AGENTICOS: PHASE6 PASS") == 1
         assert text.count("AGENTICOS: TIMER PASS") == 1 and "EXCEPTION HALT" not in text
         timer = re.search(r"\[timer\] PIT input_hz=(\d+) divisor=(\d+) ticks=(\d+) eoi=(\d+) saved_IF=1; PIC masked, IF=0", text)
         assert timer and int(timer[1]) == 1193182 and int(timer[2]) == 11932
@@ -128,7 +129,7 @@ def run(args):
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
-                expected = "AGENTICOS: PHASE5 PASS\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
+                expected = "AGENTICOS: PHASE6 PASS\n" if args.scenario == "normal" else "AGENTICOS: EXCEPTION HALT\n"
                 deadline = time.monotonic() + args.timeout
                 injected = False
                 while time.monotonic() < deadline:
@@ -158,7 +159,7 @@ def run(args):
                 (output / "registers.txt").write_text(registers)
                 gdt = re.search(r"\bGDT=\s*([0-9a-f]+)", registers)
                 assert gdt, "Missing actual GDTR"
-                gdt_memory = qmp.execute("human-monitor-command", {"command-line": f"x /5gx 0x{gdt[1]}"})
+                gdt_memory = qmp.execute("human-monitor-command", {"command-line": f"x /7gx 0x{gdt[1]}"})
                 (output / "gdt-memory.txt").write_text(gdt_memory)
                 validate_result(serial.read_text(), registers, args.scenario, elf, gdt_memory)
                 assert args.scenario != "nmi" or injected

@@ -1,7 +1,7 @@
 #include "serial.h"
 #include "io.h"
 
-enum { COM1 = 0x3f8, POLL_LIMIT = 100000 };
+enum { COM1 = 0x3f8, POLL_LIMIT = 100000, TX_POLL_LIMIT = 1000000 };
 
 bool serial_try_read(char *character) {
     if (character == 0) { return false; }
@@ -36,7 +36,7 @@ bool serial_init(void) {
 
 static void serial_putc(char value) {
     /* A missing/broken UART must not hang boot indefinitely. */
-    for (unsigned int i = 0; i < POLL_LIMIT; ++i) {
+    for (unsigned int i = 0; i < TX_POLL_LIMIT; ++i) {
         if ((inb(COM1 + 5) & 0x20) != 0) {
             outb(COM1, (uint8_t)value);
             return;

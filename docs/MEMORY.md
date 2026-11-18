@@ -6,6 +6,7 @@ These are foundations for later processes and isolated agents, not an AI runtime
 Week 4 adds [kernel-owned descriptors and interrupt handling](INTERRUPTS.md);
 memory protection probes now use that common ISR path.
 Week 5 adds guarded [task stacks](SCHEDULING.md) and IRQ-preserving heap wrappers.
+Week 6 adds [owned user roots and checked user copies](USER_MODE.md).
 
 ## Physical versus virtual memory
 
@@ -65,7 +66,8 @@ Only described RAM/framebuffer regions populate the direct map; the entire
 mode are checked. The kernel gets RX instructions, RO/NX constants and RW/NX
 requests/data/stack. Direct aliases of instructions/constants are RO/NX too.
 Framebuffer mappings use a conservative uncacheable policy. No mapping accepts
-write plus execute; every level is supervisor-only.
+write plus execute. Kernel mappings stay supervisor-only; explicit USER pages
+are permitted only in the lower half of a user root.
 
 The architecture helper enables CR0.WP so supervisor writes respect read-only
 pages and EFER.NXE so NX is enforced. It flushes inherited global TLB entries
@@ -79,11 +81,13 @@ require additional coordination beyond a TLB invalidation.
 
 A failed map rolls back only newly allocated path nodes. Unmap frees empty
 tables but never frees the caller's data frame. Destruction refuses active
-spaces and releases only table frames in an owned, unshared tree. Backend
-pointers must remain valid while frames are owned. The query API reports leaf
-permissions; manager-created parents are always writable supervisor entries
-with execution controlled at the leaf. There are no shared tables, user spaces,
-SMP shootdowns or concurrent edits in this milestone.
+spaces. A kernel root owns its tree; a Week 6 user root owns its lower tree and
+borrows supervisor upper subtrees, which destruction skips. The kernel owner
+and borrowed mappings must remain valid while the child can run. Backend
+pointers must remain valid while frames are owned. Query reports effective
+WRITE/USER permission across parents and leaf, and NX if any level forbids
+execution. Privilege changes through protect are rejected. There are no SMP
+shootdowns or concurrent edits.
 
 ## Heap and fragmentation
 
@@ -140,7 +144,7 @@ without a host libc. Tests link renamed versions to preserve sanitizer/libc
 interceptors and compare behavior with the host library.
 
 This subsystem assumes one serialized bootstrap CPU. Demand paging, swap,
-huge pages, dynamic heap growth, user processes and arbitrary corruption recovery
+huge pages, dynamic heap growth and arbitrary corruption recovery
 are not implemented. QEMU BIOS is verified at 32/128/512 MiB; the pinned UEFI
 path is verified at 128/256/512 MiB. UEFI 32/64 MiB experiments failed before
 kernel entry, including a Limine high-memory allocator panic at 64 MiB.

@@ -25,7 +25,7 @@ def check_memory_logs(text, scenario):
     validate_diagnostics(text, "normal", "INFO")
     assert text.count("AGENTICOS: kernel entered") == 1
     assert text.count("AGENTICOS: PHASE1 PASS") == 1
-    assert "AgenticOS 0.5.0" in text
+    assert "AgenticOS 0.6.0" in text
     assert text.count("PMM allocate/free and VMM alias/protect/remap/unmap passed") == 1
     assert text.count("heap alignment, cross-page data, invalid-free and coalescing passed") == 1
     assert "guard pages=2; supervisor WP=1 NX=1" in text
@@ -46,6 +46,7 @@ def check_memory_logs(text, scenario):
         assert text.count("AGENTICOS: PHASE3 PASS") == 1 and "AGENTICOS: PAGEFAULT PASS" not in text
         assert text.count("AGENTICOS: PHASE4 PASS") == 1
         assert text.count("AGENTICOS: PHASE5 PASS") == 1
+        assert text.count("AGENTICOS: PHASE6 PASS") == 1
         assert text.count("AGENTICOS: TIMER PASS") == 1
     if scenario == "oom":
         exhaustion = re.search(r"\[memory-test\] exhausted and recovered (\d+) physical frames", text)
@@ -79,7 +80,7 @@ def run(args):
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
                 expected = ("AGENTICOS: PAGEFAULT PASS\n" if args.scenario in ("readonly", "nx", "guard")
-                            else "AGENTICOS: PHASE5 PASS\n")
+                            else "AGENTICOS: PHASE6 PASS\n")
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     text = serial.read_text(errors="replace") if serial.exists() else ""

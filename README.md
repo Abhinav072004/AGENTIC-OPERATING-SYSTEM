@@ -5,15 +5,15 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 5 / Phase 5 — tasks and scheduling, verified in QEMU.**
-AgenticOS runs cooperative and timer-preempted round-robin kernel tasks, with
-guarded stacks, task/process control blocks, sleep, join, cancellation, mutexes
-and semaphores. It retains its memory managers and owned GDT/IDT/TSS. Normal
-boot verifies task contexts, synchronization and resource recovery, masks IRQs,
-reports `AGENTICOS: PHASE5 PASS`, then halts with IF clear.
-Kernel tasks share one address space. User mode, isolated processes, syscalls,
-AI runtime, shell, filesystem, networking and desktop remain future work.
-Phase 6 (user mode and syscalls) awaits owner approval.
+**Current milestone: Week 6 / Phase 6 — user mode and syscalls, verified in QEMU.**
+AgenticOS loads native C ELF programs into separate ring-3 address spaces,
+preempts them through the timer, and provides checked `write`, `read`, `exit`,
+`getpid` and `yield` syscalls. User faults terminate the offending process while
+the kernel and a second process continue. Boot verifies isolation, buffers and
+resource recovery, masks IRQs, reports `AGENTICOS: PHASE6 PASS`, then halts.
+The kernel retains its task, memory and interrupt foundations. AI runtime,
+shell, filesystem, networking and desktop remain future work.
+Phase 7 (VFS and a RAM filesystem) awaits owner approval.
 
 ## Build and test
 
@@ -30,6 +30,7 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-memory        # RAM sizes, protection faults, OOM recovery
 ./scripts/env.sh make test-interrupts    # owned tables, timer, real faults and NMI
 ./scripts/env.sh make test-scheduler     # contexts, synchronization, stress and failures
+./scripts/env.sh make test-user          # real CPL3/CR3, syscalls, isolation and UART
 ./scripts/env.sh make run                # BIOS, serial on terminal; Ctrl+C to exit
 ./scripts/env.sh make run-uefi           # UEFI equivalent
 ```
@@ -65,11 +66,14 @@ kernel/
   runtime/               Freestanding compiler memory primitives
   interrupts/            Exception dispatch, returning IRQs and timer self-check
   scheduler/             Task states, guarded stacks, switching and synchronization
-  process/               Bounded kernel PCB groups; shared kernel address space
-  syscall/               Reserved for Phase 6
+  process/               PCB groups and retained thread/address-space metadata
+  user/                  Bounded ELF loader, private mappings, copies and containment
+  syscall/               Shared native ABI and validated console/process dispatch
   filesystem/            Reserved for Phase 7
 userland/
-  shell/, applications/  Future native processes
+  runtime/               Native entry, linker and syscall wrappers
+  applications/          Native hello and user/isolation check programs
+  shell/                 Future interactive native shell
   agents/                Future isolated agent services
 libraries/               Reserved for shared kernel/user libraries
 scripts/                 Setup, dependency fetching, tool activation, GDB commands
@@ -94,7 +98,9 @@ Reserved directories contain no claimed implementations.
 - [Memory management internals](docs/MEMORY.md)
 - [Interrupt and exception internals](docs/INTERRUPTS.md)
 - [Tasks and scheduling internals](docs/SCHEDULING.md)
-- [Week 5 results and limitations](docs/reports/phase-5.md)
+- [User mode and syscall ABI](docs/USER_MODE.md)
+- [Week 6 results and limitations](docs/reports/phase-6.md)
+- [Historical Week 5 report](docs/reports/phase-5.md)
 - [Historical Week 4 report](docs/reports/phase-4.md)
 - [Historical Week 3 report](docs/reports/phase-3.md)
 - [Historical Week 2 report](docs/reports/phase-2.md)

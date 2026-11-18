@@ -39,3 +39,8 @@ bool arch_memory_activate(uint64_t root) {
 void arch_memory_invalidate(uint64_t address) {
     __asm__ volatile ("invlpg (%0)" : : "r"((uintptr_t)address) : "memory");
 }
+bool arch_memory_switch(uint64_t root) {
+    if ((root & ~UINT64_C(0x000ffffffffff000)) != 0) { return false; }
+    if (arch_memory_root() != root) { __asm__ volatile ("mov %0, %%cr3" : : "r"(root) : "memory"); }
+    return arch_memory_root() == root;
+}

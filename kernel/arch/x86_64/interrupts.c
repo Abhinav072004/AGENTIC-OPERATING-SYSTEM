@@ -39,3 +39,16 @@ unsigned int arch_interrupt_stack(uintptr_t pointer) {
     }
     return 0;
 }
+void arch_interrupts_kernel_stack(uint64_t top) { tables.tss.rsp[0] = top; }
+uint64_t arch_interrupts_rsp0(void) { return tables.tss.rsp[0]; }
+void arch_user_cpu_policy(void) {
+    uint64_t cr0, cr4;
+    __asm__ volatile ("mov %%cr0, %0; mov %%cr4, %1" : "=r"(cr0), "=r"(cr4));
+    cr0 |= UINT64_C(0xc); /* EM/TS: FPU, MMX and SIMD trap; no unsaved register leakage. */
+    cr4 &= ~((UINT64_C(1) << 8) | (UINT64_C(1) << 16)); /* No user RDPMC/FSGSBASE. */
+    __asm__ volatile ("mov %0, %%cr0; mov %1, %%cr4" : : "r"(cr0), "r"(cr4) : "memory");
+    /* No TLS/per-CPU GS ABI yet: enter user mode with explicit zero bases. */
+    for (uint32_t msr = UINT32_C(0xc0000100); msr <= UINT32_C(0xc0000102); ++msr) {
+        __asm__ volatile ("wrmsr" : : "c"(msr), "a"(UINT32_C(0)), "d"(UINT32_C(0)) : "memory");
+    }
+}

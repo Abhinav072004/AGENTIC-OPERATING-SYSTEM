@@ -11,6 +11,7 @@ the rootless toolchain.
 ./scripts/env.sh make test-memory
 ./scripts/env.sh make test-interrupts
 ./scripts/env.sh make test-scheduler
+./scripts/env.sh make test-user
 ```
 
 ## Boot regressions and Phase 2 checks
@@ -48,7 +49,7 @@ Evidence lives in `build/tests/{bios,uefi}/`:
 - `registers.txt`: CPU state after success.
 - `screen.ppm`, `screen.png`: actual framebuffer capture, same image in two formats.
 
-These are generated files; [the Week 5 report](docs/reports/phase-5.md)
+These are generated files; [the Week 6 report](docs/reports/phase-6.md)
 records the accepted run. Tests return nonzero on failure. An intentional
 empty boot image was also checked to confirm timeout is a failing result.
 
@@ -104,7 +105,7 @@ sanitizer runtime's own symbols.
 
 | Scenario / BOOT_TEST | BIOS RAM | UEFI RAM | Result required |
 | --- | --- | --- | --- |
-| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 through PHASE5 PASS |
+| normal / none | 32, 128, 512 MiB | 128, 256, 512 MiB | PHASE3 through PHASE6 PASS |
 | readonly / memory-ro | 128 MiB | 128 MiB | Real #PF error 0x3; write did not commit |
 | nx / memory-nx | 128 MiB | 128 MiB | Real #PF error 0x11; RIP is the NX address |
 | guard / memory-guard | 128 MiB | 128 MiB | Real #PF error 0x0 at the unmapped guard |
@@ -120,7 +121,7 @@ allocated root, WP/NXE set, LA57/IF clear, a kernel HLT, and the actual welcome
 capture after switching page tables. It records exact argv, ISO SHA-256, serial,
 registers and screenshots in `build/tests/memory-{firmware}-{scenario}-{RAM}m/`.
 The default image remains separate from deliberate failures. Normal/oom checks
-now wait for PHASE5 and the completed task tests; earlier phase markers alone
+now wait for PHASE6 and the completed user tests; earlier phase markers alone
 are insufficient for current normal readiness.
 
 The runner additionally rejects a readonly-fault image presented as a normal
@@ -174,10 +175,10 @@ at 128 MiB, one BIOS and one UEFI run per row:
 
 | BOOT_TEST | Required CPU result |
 | --- | --- |
-| none | Owned GDT/IDT/TSS, IRETQ register/flag preservation, at least eight timer IRQs/EOIs, then task completion and PHASE5 PASS |
+| none | Owned GDT/IDT/TSS, IRETQ preservation and timer IRQs, then task/user completion and PHASE6 PASS |
 | exception-divide | Real integer divide error, vector 0, error 0, exact fault RIP |
 | exception-ud | UD2, vector 6, error 0, exact fault RIP |
-| exception-gp | Invalid GDT selector, vector 13, error 0x28, exact fault RIP |
+| exception-gp | Invalid GDT selector 0x38 after the Week 6 GDT extension, vector 13/error 0x38, exact fault RIP |
 | exception-pf | Unmapped read, vector 14, error 0, exact CR2/RIP and decoded bits |
 | exception-df | Real nested page-fault delivery with bad RSP, vector 8, error 0, handler on IST1 |
 | exception-nmi | Host QMP inject-nmi with IF clear, vector 2, handler on IST2 |
@@ -230,8 +231,8 @@ reject occupied guards, and allow physical frame zero.
 
 | BOOT_TEST | BIOS RAM | UEFI RAM | Required result |
 | --- | --- | --- | --- |
-| none | 32, 128, 512 MiB | 128, 256, 512 MiB | Full normal task checks and PHASE5 PASS |
-| scheduler-stress | 128 MiB | 128 MiB | Four task rounds, one-tick quantum, real stack OOM/recovery, PHASE5 PASS |
+| none | 32, 128, 512 MiB | 128, 256, 512 MiB | Full task/user checks and PHASE6 PASS |
+| scheduler-stress | 128 MiB | 128 MiB | Four task rounds, one-tick quantum, real stack OOM/recovery, then PHASE6 |
 | scheduler-guard | 128 MiB | 128 MiB | Real #PF at the task's unmapped lower guard, no PHASE5 |
 | scheduler-watchdog | 128 MiB | 128 MiB | Runaway worker hits the scheduler watchdog, no PHASE5 |
 
@@ -272,10 +273,73 @@ deadlines, clean QMP exit and owned-process cleanup remain required.
 ./scripts/env.sh python3 tests/scheduler_boot_test.py --firmware uefi --memory 128
 ```
 
+## Native user mode and syscalls (Week 6)
+
+`test-host` builds the actual native probe ELF and runs ELF, copy, return-policy
+and address-space tests under ASan/UBSan. Fourteen malformed image variants
+cover format/bounds/overflow, W^X, page overlap, dynamic/TLS and executable stack
+requests. Tests check BSS/padding, independent roots/data, stack guards, info
+page contents, effective parent USER/WRITE, cross-page copies and rejection
+before partial writes. All loader allocation budgets from 0 through 32 are
+exercised, with exact frame recovery and the borrowed kernel mapping intact.
+
+`make test-user` performs **12 guest checks** using isolated builds:
+
+| BOOT_TEST | BIOS RAM | UEFI RAM | Required outcome |
+| --- | --- | --- | --- |
+| none | 32, 128, 512 MiB | 128, 256, 512 MiB | Native hello, private-root pair, eight contained faults, reclaim and PHASE6 |
+| user-stress | 128 MiB | 128 MiB | Four private-root rounds, real partial-loader OOM rollback, full containment and PHASE6 |
+| user-io | 128 MiB | 128 MiB | Receive host byte Z through SYS_READ, echo via SYS_WRITE, PHASE6 |
+| user-reject | 128 MiB | 128 MiB | Required invalid ELF rejected; kernel assertion and no PHASE6 |
+
+Every successful user run independently captures CPU registers while CPL 3 is
+live: CS 0x2b, SS 0x33, user RIP/RSP, IOPL 0 and a CR3 different from the kernel.
+The kernel's first-syscall records also identify the actual user CR3 and TSS
+kernel-stack/frame addresses. The runner later requires final CPL0 HLT/IF clear,
+kernel CR3 restored, GDT/IDT/TR/busy memory, WP/NXE and EM/TS.
+
+Two concurrent copies of the same ELF must have distinct roots and physical
+data at the same virtual address, retain PID cookies and each accumulate at
+least six actual user timer entries without yielding in their spin loop.
+Native code exercises every syscall, invalid/unknown calls, buffer bounds,
+readonly/kernel/NULL/overflow/straddle failures, zero length, exit range and a
+maximum 128-byte write to fd 2. The input fixture uses a Unix UART socket and
+records its injected byte after USER IO WAIT; serial output is captured intact.
+
+Each contained attack runs beside a guardian that must still complete:
+
+| User action | Required result |
+| --- | --- |
+| Read supervisor kernel mapping | #PF 14, error 0x5, kernel CR2 |
+| Read another root's private-only VA | #PF 14, error 0x4, CR2 0x60000000 |
+| Write read-only constants | #PF 14, error 0x7 |
+| Execute RW/NX data | #PF 14, error 0x15, RIP=CR2 |
+| CLI | #GP 13, error 0 |
+| INT against kernel yield gate | #GP 13, error 0x40a |
+| SIMD with unsaved state disabled | #UD 6, error 0 |
+| Return with noncanonical user RSP | Context rejected and task terminated before IRET |
+
+These are contained process failures inside a successful boot. The separate
+two user-reject firmware runs are expected fatal kernel tests, not normal boots.
+The normal checker must reject that image despite PHASE5; output is saved as
+`build/tests/user-runner-negative.log`. Pre-PHASE6 markers cannot establish
+current readiness.
+
+Evidence is in `build/tests/user-{firmware}-{scenario}-{RAM}m/`: exact argv/RAM,
+ISO/ELF hashes and injected input, `user-registers.txt`, final registers, actual
+GDT memory, serial/emulator logs and framebuffer captures. Builds are isolated
+under `build/user-scenarios/`; native ELFs are in each build's `user/` directory.
+Runners remove stale evidence, enforce a deadline and require clean QMP exit.
+
+```sh
+./scripts/env.sh python3 tests/user_boot_test.py --firmware bios --memory 32
+./scripts/env.sh python3 tests/user_boot_test.py --firmware uefi --memory 128
+```
+
 ## Limits
 
-The targets cover Phase 1–5 behavior. They do not verify general exception
-recovery, user isolation, SMP/concurrent allocation, driver portability, AI,
+The targets cover Phase 1–6 behavior. They do not verify arbitrary exception
+recovery, comprehensive security hardening, SMP/concurrent allocation, driver portability, AI,
 physical boot or Secure Boot. Actual machine-check delivery, APIC/IOAPIC,
-arbitrary NMI nesting, user-mode scheduling and FPU/SIMD contexts are not exercised or claimed.
+arbitrary NMI nesting and FPU/SIMD context support are not exercised or claimed.
 These require future milestones.

@@ -30,6 +30,7 @@ def validate(text, registers, gdt_memory, scenario):
     if scenario in ("normal", "stress"):
         validate_diagnostics(text, "normal", "INFO")
         assert text.count("AGENTICOS: PHASE5 PASS") == 1 and "[PANIC]" not in text
+        assert text.count("AGENTICOS: PHASE6 PASS") == 1
         rounds = 4 if scenario == "stress" else 1
         for marker in ("COOPERATIVE PASS", "PREEMPT PASS", "SYNC PASS", "RECLAIM PASS"):
             assert text.count("AGENTICOS: " + marker) == rounds, marker
@@ -89,7 +90,7 @@ def run(args):
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
                 expected = ("[PANIC] [panic]" if args.scenario == "watchdog" else
-                            "AGENTICOS: EXCEPTION HALT\n" if args.scenario == "guard" else "AGENTICOS: PHASE5 PASS\n")
+                            "AGENTICOS: EXCEPTION HALT\n" if args.scenario == "guard" else "AGENTICOS: PHASE6 PASS\n")
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     text = serial.read_text(errors="replace") if serial.exists() else ""
@@ -109,7 +110,7 @@ def run(args):
                 (output / "registers.txt").write_text(registers)
                 gdt = re.search(r"\bGDT=\s*([0-9a-f]+)", registers)
                 assert gdt
-                gdt_memory = qmp.execute("human-monitor-command", {"command-line": f"x /5gx 0x{gdt[1]}"})
+                gdt_memory = qmp.execute("human-monitor-command", {"command-line": f"x /7gx 0x{gdt[1]}"})
                 (output / "gdt-memory.txt").write_text(gdt_memory)
                 validate(serial.read_text(), registers, gdt_memory, args.scenario)
                 qmp.execute("screendump", {"filename": str(output / "screen.ppm")})

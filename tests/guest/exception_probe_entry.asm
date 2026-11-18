@@ -19,7 +19,7 @@ probe_ud_instruction:
     ud2
     ret
 exception_general_protection:
-    mov ax, 0x28                ; Beyond the owned GDT's 0x27 limit.
+    mov ax, 0x38                ; Beyond the owned GDT's 0x37 limit.
 probe_gp_instruction:
     mov ds, ax
     ret

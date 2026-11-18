@@ -5,10 +5,11 @@
 #include "arch/x86_64/io.h"
 #include "debug/panic.h"
 #include "runtime/memory.h"
+#include "user/user.h"
 
 #define STACK_CANARY UINT64_C(0x47ab89cde123650f)
 static struct scheduler_core core;
-struct task_storage { struct task_stack stack; task_entry entry; void *argument; };
+struct task_storage { struct task_stack stack; task_entry entry; void *argument; bool user; };
 static struct task_storage storage[TASK_CAPACITY];
 static volatile bool active;
 static uint64_t idle_sleeps, run_start, watchdog;
@@ -36,7 +37,8 @@ static void check_stack(unsigned int slot, const struct interrupt_frame *frame) 
     const struct task_stack *stack = &storage[slot].stack;
     KASSERT(stack->ready && *(volatile uint64_t *)(uintptr_t)stack->bottom == STACK_CANARY);
     KASSERT((uintptr_t)frame >= stack->bottom + 16 && (uintptr_t)frame <= stack->top - sizeof(*frame));
-    KASSERT(frame->rsp >= stack->bottom + 16 && frame->rsp < stack->top);
+    if ((frame->cs & 3u) == 0) { KASSERT(frame->rsp >= stack->bottom + 16 && frame->rsp < stack->top); }
+    else { KASSERT(storage[slot].user); } /* User RSP is untrusted; validate before IRET. */
 }
 static _Noreturn void task_start(void) {
     unsigned int slot = core.current;
@@ -65,7 +67,8 @@ bool task_process_destroy(uint64_t pid) {
 bool task_spawn(uint64_t pid, task_entry entry, void *argument, uint64_t *tid) {
     uint64_t flags = irq_save();
     unsigned int slot = sched_core_slot(&core);
-    if (entry == NULL || tid == NULL || slot == TASK_CAPACITY || process_find(&core.processes, pid) == NULL ||
+    struct process_control *process = process_find(&core.processes, pid);
+    if (entry == NULL || tid == NULL || slot == TASK_CAPACITY || process == NULL || process->isolated ||
         !task_stack_create(&storage[slot].stack, slot, &stack_ops)) { irq_restore(flags); return false; }
     struct task_stack *stack = &storage[slot].stack;
     memset((void *)(uintptr_t)stack->bottom, 0, TASK_STACK_BYTES);
@@ -80,6 +83,7 @@ bool task_spawn(uint64_t pid, task_entry entry, void *argument, uint64_t *tid) {
     }
     storage[slot].entry = entry;
     storage[slot].argument = argument;
+    storage[slot].user = false;
     irq_restore(flags);
     return true;
 }
@@ -118,7 +122,7 @@ bool task_cancel(uint64_t tid) {
 bool task_join(uint64_t tid, int *status) {
     uint64_t flags = irq_save(), caller = current()->tid;
     struct task_control *task = sched_core_find(&core, tid);
-    if (task == NULL || tid == 0 || tid == caller || (task->joiner != TASK_NONE && task->joiner != caller) ||
+    if (task == NULL || tid == 0 || storage[(size_t)(task - core.tasks)].user || tid == caller || (task->joiner != TASK_NONE && task->joiner != caller) ||
         (task->state != TASK_ZOMBIE && (!active || core.current == 0))) { irq_restore(flags); return false; }
     /* Reject cycles before reserving a join or blocking. */
     struct task_control *link = task;
@@ -147,8 +151,57 @@ struct interrupt_frame *scheduler_interrupt(struct interrupt_frame *frame, bool 
     uintptr_t next = timer ? sched_core_tick(&core, (uintptr_t)frame) : sched_core_schedule(&core, (uintptr_t)frame);
     KASSERT(next != 0);
     if (core.ticks - run_start > watchdog) { PANIC("scheduler watchdog expired"); }
+    while ((((const struct interrupt_frame *)next)->cs & 3u) == 3 && !user_frame_prepare((struct interrupt_frame *)next)) {
+        user_bad_context((const struct interrupt_frame *)next);
+        KASSERT(sched_core_finish(&core, current()->tid, USER_BAD_CONTEXT));
+        next = sched_core_schedule(&core, next);
+        KASSERT(next != 0);
+    }
     check_stack(core.current, (const struct interrupt_frame *)next);
+    extern unsigned char stack_top[];
+    arch_interrupts_kernel_stack(core.current == 0 ? (uintptr_t)stack_top : storage[core.current].stack.top);
+    struct process_control *process = process_find(&core.processes, current()->pid);
+    KASSERT(process != NULL && user_switch_root(process->address_space));
     return (struct interrupt_frame *)next;
+}
+static void user_unreachable(void *argument) { (void)argument; PANIC("user task entered kernel trampoline"); }
+bool task_spawn_user(uint64_t pid, uint64_t entry, uint64_t stack, uint64_t argument, uint64_t *tid) {
+    uint64_t flags = irq_save(), id;
+    struct process_control *process = process_find(&core.processes, pid);
+    if (active || tid == NULL || process == NULL || pid == KERNEL_PID || process->threads != 0 ||
+        entry < USER_IMAGE_BASE || entry >= USER_IMAGE_END || stack < USER_STACK_BOTTOM || stack >= USER_STACK_TOP ||
+        !task_spawn(pid, user_unreachable, NULL, &id)) { irq_restore(flags); return false; }
+    struct task_control *task = sched_core_find(&core, id);
+    struct interrupt_frame *frame = (void *)task->context;
+    frame->rip = entry; frame->rsp = stack; frame->cs = X86_USER_CODE; frame->ss = X86_USER_DATA;
+    frame->rdi = pid; frame->rsi = argument;
+    storage[(size_t)(task - core.tasks)].user = true;
+    *tid = id;
+    irq_restore(flags); return true;
+}
+bool task_process_bind_user(uint64_t pid, uint64_t root) {
+    uint64_t flags = irq_save();
+    struct process_control *process = process_find(&core.processes, pid);
+    bool result = !active && process != NULL && pid != KERNEL_PID && process->threads == 1 &&
+                  root % 4096 == 0 && root < (UINT64_C(1) << 52) && root != memory_address_space()->root;
+    if (result) { process->address_space = root; process->isolated = true; }
+    irq_restore(flags); return result;
+}
+bool task_reap_user(uint64_t tid, int *status) {
+    uint64_t flags = irq_save();
+    struct task_control *task = sched_core_find(&core, tid);
+    if (active || core.current != 0 || task == NULL || task->state != TASK_ZOMBIE ||
+        !storage[(size_t)(task - core.tasks)].user) { irq_restore(flags); return false; }
+    size_t slot = (size_t)(task - core.tasks);
+    storage[slot].user = false;
+    bool result = task_join(tid, status);
+    if (!result) { storage[slot].user = true; }
+    irq_restore(flags); return result;
+}
+bool task_is_user(void) { return active && core.current != 0 && storage[core.current].user; }
+struct interrupt_frame *task_finish_user(struct interrupt_frame *frame, int status) {
+    KASSERT(task_is_user() && (frame->cs & 3u) == 3 && sched_core_finish(&core, current()->tid, status));
+    return scheduler_interrupt(frame, false);
 }
 void scheduler_run(bool preemptive, unsigned int quantum, uint64_t watchdog_ticks) {
     uint64_t flags = irq_save();

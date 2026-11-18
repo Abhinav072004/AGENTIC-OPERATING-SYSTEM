@@ -8,6 +8,7 @@
 #include "memory/probe.h"
 #include <stdatomic.h>
 #include "scheduler/task.h"
+#include "user/user.h"
 
 static struct pic8259 pic;
 static bool initialized;
@@ -86,7 +87,12 @@ struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame) {
         } else { ++unexpected_irqs; }
         if (!pic8259_eoi(&pic, irq, delivery)) { fatal_exception(frame); }
         if (irq == 0 && delivery == PIC_REAL) { ++timer_eois; }
+        if (irq == 0 && delivery == PIC_REAL) { user_timer_entry(frame); }
         return irq == 0 && delivery == PIC_REAL ? scheduler_interrupt(frame, true) : frame;
+    }
+    if ((frame->cs & 3u) == 3) {
+        if (frame->vector == X86_SYSCALL_VECTOR) { return syscall_dispatch(frame); }
+        if (frame->vector < 32 && frame->vector != 2 && frame->vector != 8 && frame->vector != 18) { return user_fault(frame); }
     }
     if (frame->vector == 128 && returning_probe) {
         KASSERT((flags_read() & UINT64_C(0x600)) == 0); /* Live DF and IF clear. */

@@ -2,8 +2,8 @@
 
 AgenticOS now owns the descriptor tables used after initial boot, handles
 returning timer IRQs, and prints fatal CPU exception diagnostics. It still has
-one bootstrap CPU and no user process. Week 5 adds [kernel-task scheduling](SCHEDULING.md)
-after these checks. The final boot state is still a masked, IF-clear halt after
+one bootstrap CPU. Week 5 adds [kernel-task scheduling](SCHEDULING.md) and Week 6
+adds [native user processes](USER_MODE.md). The final boot state is still a masked, IF-clear halt after
 the task exercises finish and their resources are reclaimed.
 
 ## GDT, TSS and IDT have different jobs
@@ -11,13 +11,15 @@ the task exercises finish and their resources are reclaimed.
 The GDT defines segment descriptors. Long-mode code uses a flat address space,
 but CS still needs a valid 64-bit code descriptor and IDT gates still select it.
 AgenticOS installs a null descriptor, ring-0 code at selector `0x8`, writable
-data at `0x10`, and a two-slot 64-bit TSS descriptor at `0x18`. The table is
-40 bytes, so GDTR's inclusive limit is 39. A far return reloads CS; data/stack
+data at `0x10`, and a two-slot 64-bit TSS descriptor at `0x18`. Week 6 appends
+ring-3 code/data at selectors `0x2b`/`0x33`. The table is now 56 bytes with
+inclusive limit 55. A far return reloads CS; data/stack
 selectors and TR are reloaded explicitly.
 
 The 104-byte TSS supplies stack pointers. It does not schedule processes or
 perform hardware task switching here. RSP0 points at the bootstrap stack for
-future privilege transitions; no ring-3 transition exists yet. Three separate
+privilege transitions and is updated to the selected task's kernel-stack top.
+The CPU uses it on ring-3 interrupt/syscall entry. Three separate
 16 KiB stacks serve IST1 (double fault), IST2 (NMI) and IST3 (machine check).
 The I/O bitmap offset is beyond the TSS limit. LTR must set the TSS descriptor's
 busy bit in GDT memory, which the kernel and QMP tests independently check.
@@ -25,9 +27,10 @@ QEMU's register dump can label its cached TR `TSS64-avl` even after the memory
 descriptor becomes busy; the tests therefore inspect the actual GDT bytes too.
 
 The IDT has 256 sixteen-byte interrupt gates, with inclusive limit 4095. Each
-gate selects our code descriptor, is present at DPL 0, and points at its own
-assembly stub. DPL 0 prevents future ring-3 code from issuing arbitrary software
-INT instructions through these gates; it does not block CPU-generated faults.
+gate selects our code descriptor and points at its own assembly stub. All gates
+have DPL 0 except the Week 6 syscall gate at vector 130, which has DPL 3.
+The DPL-0 gates reject arbitrary user software INTs; CPU-generated faults still
+reach their handlers regardless of gate DPL.
 Interrupt gates clear live IF on entry. Only vectors 8, 2 and 18 select an IST;
 other handlers use the interrupted stack.
 
@@ -57,7 +60,7 @@ The error-code list includes vectors 8, 10–14, 17, 21, 29 and 30. Kernel code
 must not issue software INT against CPU error-code exception vectors: a software
 INT does not manufacture the CPU exception's error slot. The bootstrap register
 probe uses vector 128, gated by test state. Kernel-task yield/block/exit uses
-vector 129 while the scheduler is active; neither is a user-mode syscall gate.
+vector 129 while the scheduler is active. User syscalls use vector 130.
 
 IRETQ restores the interrupted instruction, stack and flags. The normal self-check
 passes distinct values with bit 40 set in all 15 GPRs, verifies the C view of
@@ -67,8 +70,9 @@ return rather than only comparing descriptor encodings.
 
 The build uses no red zone and `-mgeneral-regs-only`: asynchronous stack frames
 must not overwrite a red zone, and these stubs do not preserve SIMD/FPU state.
-There is no SWAPGS/user entry path. Those contracts must change before adding
-user mode or SIMD execution; current task switches save only GPR contexts.
+Ring-3 entry uses the interrupt gate and TSS stack. FS/GS bases are explicitly
+zero with no TLS/SWAPGS ABI. User FPU/MMX/SIMD instructions trap until those
+contexts are supported; current task switches save GPR contexts.
 
 ## PIC and PIT timer path
 
@@ -103,13 +107,15 @@ the guest remains asleep and the host acceptance deadline fails the run.
 
 ## Fatal diagnostics and dedicated stacks
 
-Unhandled CPU exceptions and unexpected non-PIC vectors report vector/name,
+Unhandled kernel exceptions and unexpected non-PIC vectors report vector/name,
 error code, RIP, CR2, saved CS/SS/RFLAGS/RSP, all 15 GPRs and the handler's stack
 source. Page faults decode present, write, user, reserved-bit, instruction-fetch,
 protection-key, shadow-stack and SGX bits. CR2 is meaningful for page faults;
 on unrelated exceptions it can contain an older fault address.
 
-Fatal handlers do not advance RIP or return into damaged state. They emit
+Week 6 contains ordinary CPL3 faults by terminating that user process and
+selecting another context. NMI, double fault and machine check retain their
+fatal policy. Kernel fatal handlers do not advance RIP or return into damaged state. They emit
 EXCEPTION HALT and stop with CLI/HLT. A lock-free atomic flag prevents nested
 fatal paths from recursively invoking formatting; reentry uses a fixed serial
 message and halts. Serial output remains bounded, best effort and nonpersistent.
@@ -140,9 +146,9 @@ general protection, absent/read-only/NX page faults, double fault and injected
 NMI. QMP captures actual descriptor/control registers, GDT memory, screenshots,
 commands and artifact hashes. A fatal image that already passed PHASE3/IRET
 must fail the normal readiness checker. Current normal readiness additionally
-requires PHASE5 after task checks; PHASE4 records this subsystem's completion.
+requires PHASE6 after task/user checks; PHASE4 records this subsystem's completion.
 
 These are tested QEMU single-CPU behaviors. APIC/IOAPIC, SMP, user isolation,
 recoverable exceptions, device-driver IRQ registration and physical hardware
-validation remain future work. Kernel-task preemption now exists; user mode
-and syscalls are the next milestone, awaiting owner approval.
+validation remain future work. Kernel/user preemption and the five basic
+syscalls now exist. The filesystem milestone awaits owner approval.

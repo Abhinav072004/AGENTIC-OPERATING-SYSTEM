@@ -48,6 +48,7 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-memory
 ./scripts/env.sh make test-interrupts
 ./scripts/env.sh make test-scheduler
+./scripts/env.sh make test-user
 ```
 
 Setup was rerun successfully using the existing package cache. Run commands

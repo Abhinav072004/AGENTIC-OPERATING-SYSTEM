@@ -1,5 +1,21 @@
 # Change log
 
+## 0.6.0 — 2026-11-18 (Week 6)
+
+- Load bounded native ELF64 programs into private user page trees, with shared
+  supervisor kernel mappings, zeroed BSS/pages, W^X and guarded user stacks.
+- Add ring-3 GDT descriptors and a DPL-3 `int 0x82` syscall gate. Switch CR3 and
+  TSS.RSP0 with tasks; validate/sanitize user return contexts before IRETQ.
+- Implement checked console write/read and exit/getpid/yield, effective user
+  page permissions, whole-buffer validation and physical-alias copies.
+- Contain user page/privilege/SIMD/context faults, reap the offender and let a
+  guardian finish. Trap unsaved FPU/SIMD use and clear FS/GS bases.
+- Build freestanding native C hello/probe ELFs and an explicit syscall runtime.
+- Add host ELF/copy/return/rollback tests and 12 BIOS/UEFI user checks with actual
+  CPL3 CPU capture, private data, eight attack cases, OOM/stress and UART input.
+- Extend bounded UART transmit polling after bidirectional testing exposed
+  dropped characters. Normal readiness now requires PHASE6 completion.
+
 ## 0.5.0 — 2026-11-17 (Week 5)
 
 - Add bounded PCB/TCB tables, monotonic task/process IDs, cooperative scheduling
