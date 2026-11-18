@@ -41,4 +41,10 @@ global user_security_start, user_security_end
 user_security_start:
     incbin security_file
 user_security_end:
+align 16
+global user_planner_start, user_planner_end
+%strcat planner_file USER_BUILD, "/planner-image.elf"
+user_planner_start:
+    incbin planner_file
+user_planner_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

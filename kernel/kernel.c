@@ -16,6 +16,7 @@
 #include "net/stack.h"
 #include "gui/display.h"
 #include "security/policy.h"
+#include "agent/plan.h"
 #if CONFIG_SELFTEST == 21
 _Noreturn void user_boot_failure_probe(void);
 #endif
@@ -182,6 +183,7 @@ _Noreturn void kernel_main(void) {
     security_self_test();
     applications_boot(response->framebuffers[0]);
     serial_write("AGENTICOS: PHASE14 PASS\n");
+    agent_foundation_boot();
     serial_write("AGENTICOS: READY\n");
 #if CONFIG_SELFTEST == 23
     shell_session();

@@ -5,7 +5,7 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 14 / Phase 14 — repeatable QEMU release.**
+**Current milestone: Agent milestone 1 — typed intent and native tool contracts.**
 The core OS has isolated native ELF processes, a RAM filesystem, tested device
 and network stacks, a serial shell and a graphical desktop with six applications.
 Capabilities, file permissions, bounded resources and fault containment protect
@@ -14,7 +14,9 @@ the documented single-CPU target. Files/settings reset on reboot; native ABI is 
 Start with the [user guide](docs/USER_GUIDE.md) and [release procedure](docs/RELEASE.md).
 The default test ISO prints `AGENTICOS: READY` and halts; desktop/shell builds
 open an interactive session after acceptance checks. The owner has authorized
-continuing through the agent milestones after the core release.
+continuing through all agent milestones after the verified core release.
+[Typed intent](docs/AGENT_INTENTS.md) is now verified; broker execution, runtime,
+inference and integrated review workflows are the remaining agent milestones.
 
 ## Build and test
 

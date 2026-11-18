@@ -40,7 +40,9 @@ Their syscall buffers and return contexts are checked; user faults are contained
 The AI objective extends this OS roadmap. After the required core phases are
 verified, continue the owner-authorized sequence for:
 
-1. User intent and deterministic native tool interfaces.
+1. **Verified (agent milestone 1):** typed intent/native tool contracts, bounded
+   grammar, canonical workspace validation, 20,000 sanitized inputs and native
+   zero-capability BIOS/UEFI acceptance.
 2. Broker-enforced permissions, action validation and audit records.
 3. A bounded user-space agent runtime with cancellation and resource limits.
 4. A selected inference backend (local or networked), tested failure handling.

@@ -138,6 +138,7 @@ def run(args):
                     assert text.count("AGENTICOS: APPLICATION USER PASS") == 1
                     assert text.count("AGENTICOS: PHASE14 PASS") == 1
                     assert text.count("AGENTICOS: READY") == 1
+                    assert text.count("AGENTICOS: AGENT1 PASS") == 1
                     if args.minimum_level in ("DEBUG", "INFO"):
                         assert "native application checks passed" in text
                     if args.minimum_level in ("DEBUG", "INFO"):

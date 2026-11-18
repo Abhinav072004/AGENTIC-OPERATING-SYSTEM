@@ -1,5 +1,13 @@
 # Change log
 
+## 0.15.0 — 2026-11-18 (Agent milestone 1)
+
+- Define bounded, canonical typed plans for seven native tools under /home.
+- Parse explicit quoted multi-step requests atomically as data, with no execution.
+- Validate reserved fields, zero tails, workspace scope and required authority.
+- Test 20,000 host inputs and a budgeted, zero-capability native planner on BIOS
+  and UEFI; confirm direct file access is denied and all resources are reclaimed.
+
 ## 0.14.0 — 2026-11-18 (Week 14)
 
 - Centralize VERSION, validate its ABI bounds and introduce final READY semantics.
