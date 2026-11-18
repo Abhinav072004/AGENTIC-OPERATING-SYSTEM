@@ -10,7 +10,7 @@ real PS/2 event injection and captured framebuffer output.
 
 The desktop is a native ring-3 ELF with a window model, z-order, taskbar,
 launcher, focus, title-bar dragging, close/reopen and a software mouse cursor.
-Open Applications to focus or launch Terminal, Files or Calculator. Drag a title
+Open Applications to focus or launch Terminal, Files, Calculator, Editor, Monitor or Settings. Drag a title
 bar; click X to close. The taskbar focuses open windows. Escape exits to the
 kernel's verified halt. A maximum of eight model windows is supported; the
 current launcher keeps one live window per application.
@@ -19,10 +19,9 @@ Terminal shares the native shell command parser and file/process services.
 It shows command results and captures bounded child output into the terminal;
 `run /bin/hello` creates a separate user process. Files browses directories,
 previews text files, navigates Home/Up and provides New/Delete buttons. Click an
-entry to open it. Calculator accepts two nonnegative integer operands and one
-of `+ - * /`; Enter or `=` evaluates, C clears, Backspace edits. Overflow and
-division by zero report an error. More applications and richer editing are
-Phase 13 work. Files remain volatile across reboot.
+entry to open it. Calculator supports signed integer expressions and parentheses; Enter or `=`
+evaluates, C clears and Backspace edits. Editor, Monitor and Settings complete
+the native app set; see [APPLICATIONS.md](APPLICATIONS.md). Files remain volatile across reboot.
 
 Rendering uses copied rectangle/text commands through privileged display
 syscalls. The user process never maps the framebuffer. The kernel clips with
@@ -40,6 +39,5 @@ acceleration, scalable font, resize support or optimized damage compositor.
 `./scripts/env.sh make test-desktop` exercises calculator input, window dragging,
 file preview, terminal file/child workflows, launcher and close/reopen on BIOS
 and UEFI. Evidence is `build/tests/desktop-{bios,uefi}`. The screenshots are
-unmodified captures of the guest framebuffer. Default acceptance boots execute
-a bounded native desktop batch, restore the welcome screen, report PHASE11 and
-halt, preserving earlier boot/fault test expectations.
+unmodified captures of the guest framebuffer. Default acceptance boots execute bounded native desktop/app batches, restore
+the welcome screen and halt. Interactive sessions start after the checks.

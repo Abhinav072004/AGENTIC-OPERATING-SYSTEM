@@ -96,12 +96,14 @@ static struct fs_fd *descriptor(struct fs_handles *handles, uint64_t fd) {
     return handles != NULL && fd >= 3 && fd < FS_FD_MAX + 3u && handles->fd[fd - 3].live ? &handles->fd[fd - 3] : NULL;
 }
 long fs_open(struct fs_handles *handles, const char *path, unsigned int flags) {
-    if (handles == NULL || (flags & ~(FS_READ | FS_WRITE | FS_CREATE | FS_TRUNCATE | FS_APPEND)) != 0 ||
-        (flags & (FS_READ | FS_WRITE)) == 0 || ((flags & (FS_CREATE | FS_TRUNCATE | FS_APPEND)) != 0 && (flags & FS_WRITE) == 0)) { return FS_EINVAL; }
+    if (handles == NULL || (flags & ~(FS_READ | FS_WRITE | FS_CREATE | FS_TRUNCATE | FS_APPEND | FS_EXCLUSIVE)) != 0 ||
+        (flags & (FS_READ | FS_WRITE)) == 0 || ((flags & (FS_CREATE | FS_TRUNCATE | FS_APPEND | FS_EXCLUSIVE)) != 0 && (flags & FS_WRITE) == 0)) { return FS_EINVAL; }
+    if ((flags & FS_EXCLUSIVE) != 0 && (flags & FS_CREATE) == 0) { return FS_EINVAL; }
     unsigned int slot = 0;
     while (slot < FS_FD_MAX && handles->fd[slot].live) { ++slot; }
     if (slot == FS_FD_MAX) { return FS_EMFILE; }
     long index = resolve(path, false, NULL);
+    if (index >= 0 && (flags & FS_EXCLUSIVE) != 0) { return FS_EEXIST; }
     if (index == FS_ENOENT && (flags & FS_CREATE) != 0) { index = create(path, false); }
     if (index < 0) { return index; }
     struct node *node = &nodes[index];
@@ -188,6 +190,22 @@ long fs_rename(const char *source, const char *destination) {
         if (ancestor == (unsigned long)index) { return FS_EINVAL; }
     }
     nodes[index].parent = (uint16_t)parent; memcpy(nodes[index].name, name, sizeof(name)); return 0;
+}
+/* Replace is an allocation-free metadata commit. Validate both parents and
+ * sticky rules first; open references keep the old inode alive after commit. */
+long fs_replace(const char *source, const char *destination) {
+    long index = resolve(source,false,NULL); if (index < 0) { return index; }
+    if (nodes[index].directory) { return FS_EISDIR; }
+    char name[FS_NAME_MAX+1u]; long parent = resolve(destination,true,name); if (parent < 0) { return parent; }
+    if (!mutable_entry(&nodes[index]) || !allowed(&nodes[parent],3)) { return FS_EACCES; }
+    long target = child((unsigned int)parent,name);
+    if (target == index) { return 0; }
+    if (target >= 0) {
+        if (nodes[target].directory) { return FS_EISDIR; }
+        if (!mutable_entry(&nodes[target])) { return FS_EACCES; }
+        nodes[target].linked = false; release_node(&nodes[target]);
+    }
+    nodes[index].parent = (uint16_t)parent; memcpy(nodes[index].name,name,sizeof(name)); return 0;
 }
 static void info_for(const struct node *node, struct fs_info *info) {
     *info = (struct fs_info){.size = node->size, .directory = node->directory ? 1u : 0u, .mode = node->mode, .uid = node->uid};

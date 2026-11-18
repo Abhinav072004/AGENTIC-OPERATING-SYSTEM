@@ -4,7 +4,7 @@
 #include <stdint.h>
 #define INPUT_KEY 1u
 #define INPUT_MOUSE 2u
-struct input_event { uint32_t kind, key; int32_t dx, dy; uint32_t buttons, reserved; };
+struct input_event { uint32_t kind, key; int32_t dx, dy; uint32_t buttons, modifiers; };
 bool input_init(void);
 bool input_next(struct input_event *event);
 void input_decode(uint8_t byte, bool mouse);

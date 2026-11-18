@@ -1,6 +1,7 @@
 #include "display.h"
 #include "memory/init.h"
 #include "debug/panic.h"
+#include "runtime/memory.h"
 #define BUFFER_BASE UINT64_C(0xffffd40000000000)
 static uint64_t frames[2025];
 static size_t count;
@@ -15,6 +16,7 @@ bool gui_buffer_create(void) {
     if (pages == 0 || pages > 2025) { return false; }
     for (; count < pages; ++count) {
         if (!pmm_alloc_frame(memory_frames(),&frames[count])) { gui_buffer_destroy(); return false; }
+        memset(memory_frame_pointer(frames[count]),0,PAGE_SIZE);
         if (!vmm_map(memory_address_space(),BUFFER_BASE+count*PAGE_SIZE,frames[count],VM_WRITE|VM_NX)) { KASSERT(pmm_free_frame(memory_frames(),frames[count])); gui_buffer_destroy(); return false; }
     }
     display_set_buffer((void *)(uintptr_t)BUFFER_BASE); return true;

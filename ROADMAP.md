@@ -19,7 +19,7 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 10 | Ethernet -> ARP -> IPv4 -> ICMP -> UDP -> TCP -> sockets, one tested layer at a time | Week 10 verified: packet sanitizers + native BIOS/UEFI peer, loss/retry, client/server and failure checks |
 | 11 | Native framebuffer renderer, cursor, movable windows, taskbar, launcher, terminal/file manager/calculator | Week 11 verified: drawing/model sanitizers + real BIOS/UEFI graphical workflows |
 | 12 | Permissions, syscall validation, process isolation, resource cleanup, error recovery and security review | Week 12 verified: UID/capability/quotas/orphan/malformed-call checks, sanitizers and regressions; limits reviewed |
-| 13 | Native editor, calculator, file manager, system monitor, terminal and settings | Planned |
+| 13 | Native editor, calculator, file manager, system monitor, terminal and settings | Week 13 verified: real BIOS/UEFI apps, exact file/preference readback, full-quota save protection and sanitizers |
 | 14 | Repeatable release builds, BIOS/UEFI regression coverage, manuals and explicit hardware-test procedure | Planned |
 
 Some foundations overlap: minimal UART and framebuffer output are needed to

@@ -38,6 +38,13 @@ int main(void) {
     assert(fs_open(&files, "/../bad", FS_CREATE | FS_WRITE) == FS_EINVAL);
     char long_path[FS_PATH_MAX + 1]; memset(long_path, 'a', sizeof(long_path)); long_path[0] = '/'; long_path[FS_PATH_MAX] = 0;
     assert(fs_open(&files, long_path, FS_READ) == FS_ENAMETOOLONG);
+    fs_init(); assert(fs_seed("/old","original",8) == 0 && fs_seed("/new","replacement",11) == 0 && fs_mkdir("/dir") == 0);
+    long original = fs_open(&files,"/old",FS_READ); assert(original == 3);
+    assert(fs_open(&files,"/old",FS_CREATE|FS_WRITE|FS_TRUNCATE|FS_EXCLUSIVE) == FS_EEXIST);
+    assert(fs_replace("/new","/dir") == FS_EISDIR && fs_stat("/new",&info) == 0 && info.size == 11);
+    assert(fs_replace("/new","/old") == 0 && fs_stat("/new",&info) == FS_ENOENT && fs_stat("/old",&info) == 0 && info.size == 11);
+    assert(fs_read(&files,3,actual,8) == 8 && memcmp(actual,"original",8) == 0); fs_close_all(&files);
+    assert(fs_used_blocks() == 1); assert(fs_unlink("/old") == 0 && fs_used_blocks() == 0);
     fs_init(); assert(fs_mkdir("/home") == 0 && fs_mkdir("/tmp") == 0 && fs_mkdir("/bin") == 0);
     assert(fs_chown("/home",1000) == 0 && fs_chmod("/home",0700) == 0 && fs_chmod("/tmp",01777) == 0 && fs_chmod("/bin",0755) == 0);
     assert(fs_seed_program("/bin/program","ELF",3) == 0);

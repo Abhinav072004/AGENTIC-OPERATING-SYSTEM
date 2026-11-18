@@ -14,5 +14,10 @@ int main(void) {
     for (unsigned int i = 0; i < 6; ++i) { assert(wm_open(&wm,APP_TERMINAL) >= 0); } assert(wm_open(&wm,APP_TERMINAL) == -1);
     int64_t result; assert(wm_calculate("6*7",&result) && result == 42); assert(wm_calculate("3 - 5",&result) && result == -2);
     assert(!wm_calculate("1/0",&result) && !wm_calculate("9223372036854775807+1",&result) && !wm_calculate("1+2oops",&result) && !wm_calculate("",&result));
-    puts("PASS: window z-order/focus, drag clipping/release, close/reopen quotas and checked calculator operations"); return 0;
+    assert(wm_calculate("2*(3+4)-5",&result) && result == 9);
+    assert(wm_calculate("-3*-4",&result) && result == 12 && wm_calculate("-9223372036854775808",&result) && result == INT64_MIN);
+    assert(!wm_calculate("-9223372036854775808/-1",&result) && !wm_calculate("((((((((((1))))))))))",&result));
+    uint32_t random = 7; const char alphabet[] = "0123456789+-*/() "; char input[64];
+    for (unsigned int trial = 0; trial < 20000; ++trial) { size_t length = trial%sizeof(input); for (size_t i = 0; i < length; ++i) { random = random*1664525u+1013904223u; input[i] = alphabet[random%(sizeof(alphabet)-1u)]; } input[length] = 0; (void)wm_calculate(input,&result); }
+    puts("PASS: window z-order/focus, drag clipping/release, close/reopen quotas and checked expression precedence/overflow/depth and 20,000 calculator inputs"); return 0;
 }

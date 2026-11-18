@@ -1,5 +1,17 @@
 # Change log
 
+## 0.13.0 — 2026-11-18 (Week 13)
+
+- Add native Editor, Monitor and Settings and extend Files/Terminal integration.
+- Implement exclusive temporary files and atomic regular-file replacement;
+  preserve the original after full-quota save failure and retain open readers.
+- Support editor insertion/arrows/Delete, Ctrl shortcuts, unsaved-draft guards,
+  live memory/task views and saved appearance preferences.
+- Add checked signed calculator expressions with precedence/parentheses/depth
+  limits and 20,000 sanitized inputs; consume queued input before new batches.
+- Start interactive sessions after acceptance; verify apps through real PS/2,
+  framebuffer captures and independent private guest-memory readback.
+
 ## 0.12.0 — 2026-11-18 (Week 12)
 
 - Enforce process capabilities and RAM-file owner/other/search/sticky modes;

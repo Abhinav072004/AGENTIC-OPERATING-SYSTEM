@@ -56,6 +56,7 @@ __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER
 
 void shell_boot(void);
+void shell_session(void);
 _Noreturn void kernel_main(void);
 static struct memory_boot boot_memory;
 
@@ -179,5 +180,11 @@ _Noreturn void kernel_main(void) {
     network_self_test();
     desktop_boot(response->framebuffers[0]);
     security_self_test();
+    applications_boot(response->framebuffers[0]);
+#if CONFIG_SELFTEST == 23
+    shell_session();
+#elif CONFIG_SELFTEST == 25
+    desktop_session(response->framebuffers[0]);
+#endif
     cpu_halt();
 }

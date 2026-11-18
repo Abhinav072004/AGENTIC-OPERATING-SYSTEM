@@ -14,6 +14,8 @@
 #define FS_CREATE 4u
 #define FS_TRUNCATE 8u
 #define FS_APPEND 16u
+#define FS_EXCLUSIVE 32u
+#define FS_REPLACE 1u
 #define FS_EACCES (-13L)
 #define FS_EPERM (-1L)
 #define FS_ENOENT (-2L)
@@ -44,6 +46,7 @@ long fs_read(struct fs_handles *handles, uint64_t fd, void *buffer, size_t lengt
 long fs_write(struct fs_handles *handles, uint64_t fd, const void *buffer, size_t length);
 long fs_seek(struct fs_handles *handles, uint64_t fd, uint64_t offset);
 long fs_unlink(const char *path);
+long fs_replace(const char *source, const char *destination);
 long fs_rename(const char *source, const char *destination);
 long fs_stat(const char *path, struct fs_info *info);
 long fs_list(const char *path, uint64_t index, struct fs_entry *entry);

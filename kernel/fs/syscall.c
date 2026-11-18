@@ -29,7 +29,7 @@ static long dispatch(struct user_process *process, uint64_t number, uint64_t a, 
     if (number == SYS_OPEN) { return b > UINT32_MAX ? FS_EINVAL : fs_open(&process->files, path, (unsigned int)b); }
     if (number == SYS_MKDIR) { return fs_mkdir(path); }
     if (number == SYS_UNLINK) { return fs_unlink(path); }
-    if (number == SYS_RENAME) { result = path_copy(process, b, other); return result < 0 ? result : fs_rename(path, other); }
+    if (number == SYS_RENAME) { result = path_copy(process, b, other); if (result < 0) { return result; } if (c > FS_REPLACE) { return FS_EINVAL; } return c == FS_REPLACE ? fs_replace(path,other) : fs_rename(path,other); }
     if (number == SYS_STAT) {
         struct fs_info info;
         if (!user_buffer_valid(&process->space.vm, b, sizeof(info), true)) { return SYS_EFAULT; }

@@ -30,3 +30,8 @@ multi-user access policy are separate milestones.
 As of Week 12, experimental user ABI 2 adds UID/mode metadata and checked
 owner/other/search/sticky permissions. Programs must be rebuilt for ABI 2.
 See [SECURITY.md](SECURITY.md); groups and persistent permission storage are absent.
+
+Week 13 adds exclusive creation and `SYS_RENAME` with `FS_REPLACE` in argument
+3 for allocation-free atomic regular-file replacement. Rename without the flag
+still rejects an existing destination. Failed validation leaves both names intact;
+open descriptors to the replaced inode remain valid until close.

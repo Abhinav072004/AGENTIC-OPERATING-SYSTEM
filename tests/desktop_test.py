@@ -48,7 +48,7 @@ class Input:
         self.events(events)
     def type(self, text):
         codes = {' ': 'spc', '/': 'slash', '-': 'minus', '.': 'dot', "'": 'apostrophe', '\n': 'ret'}
-        shifted = {'*': '8', '+': 'equal', '"': 'apostrophe'}
+        shifted = {'!': '1', '*': '8', '+': 'equal', '"': 'apostrophe', '(': '9', ')': '0'}
         for character in text:
             if character in shifted: self.key(shifted[character], True)
             else: self.key(codes.get(character, character.lower()), character.isupper())
@@ -71,17 +71,17 @@ def run(firmware):
         with (output/'qemu.log').open('wb') as log:
             process = subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT)
             try:
-                def wait_for(marker):
+                def wait_for(marker,after=0):
                     deadline = time.monotonic()+35
                     while time.monotonic()<deadline:
                         text = serial.read_text(errors='replace') if serial.exists() else ''
                         assert process.poll() is None and '[PANIC]' not in text and '[ERROR]' not in text, text[-4000:]
-                        if marker in text: return text
+                        if marker in text[after:]: return text
                         time.sleep(0.025)
                     raise TimeoutError(marker+'\n'+text[-4000:])
-                wait_for('GUI READY'); qmp = QMP(qmp_path); controls = Input(qmp)
+                wait_for('GUI READY'); live_start=len(serial.read_text()); qmp = QMP(qmp_path); controls = Input(qmp)
                 initial = capture(qmp,output,'desktop-initial')
-                controls.type('6*7\n'); wait_for('GUI calc=42')
+                controls.type('6*7\n'); wait_for('GUI calc=42',live_start)
                 controls.move(550,250); controls.button(True); controls.move(450,180); controls.button(False); wait_for('GUI drag completed')
                 pixels = capture(qmp,output,'desktop-dragged')
                 assert pixels[(177*800+600)*3:(177*800+600)*3+3] == bytes.fromhex('285da3')
@@ -91,14 +91,14 @@ def run(firmware):
                 controls.type('cat /home/gui-note\n'); controls.type('run /bin/hello\n')
                 time.sleep(0.3)
                 text = serial.read_text(); assert text.count('text="GUI terminal command"') == 3
-                controls.click(50,580); controls.click(70,540)  # focus calculator through launcher
+                controls.click(50,580); controls.click(70,436)  # focus calculator through launcher
                 controls.click(652,180); wait_for('GUI close')
-                controls.click(50,580); controls.click(70,540)  # reopen calculator
+                controls.click(50,580); controls.click(70,436)  # reopen calculator
                 time.sleep(0.2)
-                assert serial.read_text().count('text="GUI launch"') == 4
+                assert serial.read_text()[live_start:].count('text="GUI launch"') == 1
                 capture(qmp,output,'desktop-final')
                 qmp.execute('stop'); registers = qmp.execute('human-monitor-command',{'command-line':'info registers'}); (output/'live-registers.txt').write_text(registers); qmp.execute('cont')
-                controls.key('esc'); wait_for('AGENTICOS: PHASE12 PASS')
+                controls.key('esc'); wait_for('AGENTICOS: SESSION EXIT')
                 registers = qmp.execute('human-monitor-command',{'command-line':'info registers'}); assert 'HLT=1' in registers and 'CPL=0' in registers
                 (output/'registers.txt').write_text(registers)
                 qmp.execute('screendump',{'filename':str(output/'screen.ppm')}); validate_screen(output/'screen.ppm',output/'screen.png')

@@ -9,6 +9,9 @@ int main(void) {
     input_decode(0xb6, false); input_decode(0x1e, false); assert(input_pop(&event) && event.key == 'a');
     input_decode(0xe0, false); input_decode(0x48, false); assert(input_pop(&event) && event.key == 256);
     input_decode(0xe0, false); input_decode(0xc8, false); assert(!input_pop(&event));
+    input_decode(0x1d,false); input_decode(0xe0,false); input_decode(0x1d,false); input_decode(0x9d,false); input_decode(0x1f,false);
+    assert(input_pop(&event) && event.key == 's' && event.modifiers == 1);
+    input_decode(0xe0,false); input_decode(0x9d,false); input_decode(0x1f,false); assert(input_pop(&event) && event.modifiers == 0);
     input_decode(0, true); input_decode(0x39, true); input_decode(0xfb, true); input_decode(0xfd, true);
     assert(input_pop(&event) && event.kind == INPUT_MOUSE && event.dx == -5 && event.dy == 3 && event.buttons == 1);
     input_decode(0xc8, true); input_decode(1, true); input_decode(1, true); assert(!input_pop(&event));

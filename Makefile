@@ -87,7 +87,7 @@ $(BUILD)/user/runtime-%.o: userland/runtime/%.c Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
 $(BUILD)/user/shell.elf: $(BUILD)/user/runtime-commands.o
-$(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o
+$(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o $(BUILD)/user/runtime-apps.o
 $(BUILD)/user/desktop-image.elf: $(BUILD)/user/desktop.elf
 	objcopy --strip-debug $< $@
 $(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o $(BUILD)/user/text.o $(BUILD)/user/runtime-memory.o userland/runtime/linker.ld
@@ -232,3 +232,7 @@ test-desktop:
 test-security: iso
 	$(PYTHON) tests/boot_test.py --firmware bios --evidence-label security
 	$(PYTHON) tests/boot_test.py --firmware uefi --evidence-label security
+
+.PHONY: test-applications
+test-applications:
+	$(PYTHON) tests/applications_test.py

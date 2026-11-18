@@ -80,7 +80,7 @@ def run(args):
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
                 expected = ("AGENTICOS: PAGEFAULT PASS\n" if args.scenario in ("readonly", "nx", "guard")
-                            else "AGENTICOS: PHASE12 PASS\n")
+                            else "AGENTICOS: PHASE13 PASS\n")
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     text = serial.read_text(errors="replace") if serial.exists() else ""

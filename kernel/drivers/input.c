@@ -13,6 +13,8 @@ bool input_init(void) {
     return device_command(false, 0xf4) && device_command(true, 0xf6) && device_command(true, 0xf4);
 }
 bool input_next(struct input_event *event) {
+    /* Consume queued events before polling another hardware batch. */
+    if (input_pop(event)) { return true; }
     for (unsigned int i = 0; i < 64; ++i) {
         uint8_t status = inb(0x64); if ((status & 1u) == 0) { break; }
         uint8_t byte = inb(0x60); if ((status & 0xc0u) != 0) { continue; }

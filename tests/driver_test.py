@@ -68,7 +68,7 @@ def run(firmware):
                         sequences.append(packet[14])
                         reply = packet[6:12] + bytes.fromhex('020000000001') + packet[12:15] + b'AGENTICOS_DRIVER_RX'
                         endpoint.sendto(reply.ljust(64, b'\0'), address)
-                    if 'AGENTICOS: PHASE12 PASS' in text:
+                    if 'AGENTICOS: PHASE13 PASS' in text:
                         break
                     time.sleep(0.01)
                 else:

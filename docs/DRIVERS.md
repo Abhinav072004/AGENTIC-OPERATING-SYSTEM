@@ -6,7 +6,7 @@ and records up to 64 devices. Configuration access is serialized on the CPU.
 
 PS/2 uses the translated set-1 keyboard and standard three-byte relative mouse.
 The controller's device IRQs are disabled; polling drains at most 64 bytes/call.
-The decoder handles shift, printable keys, backspace/enter and extended arrows;
+The decoder handles shift, printable keys, backspace/enter and extended arrows/Delete and control-key modifiers;
 mouse packets validate synchronization and overflow and sign-extend movement.
 A 63-event queue counts drops. This is not USB, hotplug or a full international
 keyboard stack.
