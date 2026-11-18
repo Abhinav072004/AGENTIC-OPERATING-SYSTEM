@@ -5,6 +5,7 @@ NASM := nasm
 PYTHON := python3
 BUILD := build
 LIMINE := .cache/limine
+QEMU_DISPLAY ?= gtk
 KERNEL_LOG_LEVEL ?= INFO
 BOOT_TEST ?= none
 .DELETE_ON_ERROR:
@@ -27,7 +28,7 @@ SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c \
     kernel/process/process.c kernel/scheduler/core.c kernel/scheduler/stack.c \
     kernel/scheduler/task.c kernel/scheduler/selftest.c kernel/user/elf.c \
-    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c
+    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c kernel/gui/display.c kernel/gui/buffer.c kernel/gui/syscall.c kernel/gui/desktop.c
 ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm kernel/arch/x86_64/task_probe.asm kernel/user/images.asm
 ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
 SOURCES += tests/guest/memory_probe.c
@@ -68,8 +69,8 @@ $(BUILD)/%.o: %.asm Makefile
 USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffreestanding -fno-builtin \
     -fno-stack-protector -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables \
     -mno-red-zone -mgeneral-regs-only -Wall -Wextra -Werror -Wpedantic -Wconversion \
-    -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime
-.SECONDARY: $(BUILD)/user/hello.o $(BUILD)/user/probe.o $(BUILD)/user/fstest.o $(BUILD)/user/shell.o $(BUILD)/user/nettest.o
+    -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime -MMD -MP
+.SECONDARY: $(BUILD)/user/hello.o $(BUILD)/user/probe.o $(BUILD)/user/fstest.o $(BUILD)/user/shell.o $(BUILD)/user/nettest.o $(BUILD)/user/desktop.o
 $(BUILD)/user/%.o: userland/applications/%.c userland/runtime/syscall.h kernel/syscall/abi.h kernel/user/elf.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
@@ -79,10 +80,20 @@ $(BUILD)/user/start.o: userland/runtime/start.asm Makefile
 $(BUILD)/user/text.o: userland/runtime/text.c userland/runtime/text.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
-$(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o $(BUILD)/user/text.o userland/runtime/linker.ld
+$(BUILD)/user/runtime-memory.o: kernel/runtime/memory.c kernel/runtime/memory.h Makefile
+	@mkdir -p $(@D)
+	$(CC) $(USER_CFLAGS) -c $< -o $@
+$(BUILD)/user/runtime-%.o: userland/runtime/%.c Makefile
+	@mkdir -p $(@D)
+	$(CC) $(USER_CFLAGS) -c $< -o $@
+$(BUILD)/user/shell.elf: $(BUILD)/user/runtime-commands.o
+$(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o
+$(BUILD)/user/desktop-image.elf: $(BUILD)/user/desktop.elf
+	objcopy --strip-debug $< $@
+$(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o $(BUILD)/user/text.o $(BUILD)/user/runtime-memory.o userland/runtime/linker.ld
 	$(LD) -nostdlib -static -z max-page-size=0x1000 -z noexecstack --build-id=none \
-	    -T userland/runtime/linker.ld $(BUILD)/user/start.o $< $(BUILD)/user/text.o -o $@
-$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(BUILD)/user/hello.elf $(BUILD)/user/probe.elf $(BUILD)/user/fstest.elf $(BUILD)/user/shell.elf $(BUILD)/user/nettest.elf Makefile
+	    -T userland/runtime/linker.ld $(filter %.o,$^) -o $@
+$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(BUILD)/user/hello.elf $(BUILD)/user/probe.elf $(BUILD)/user/fstest.elf $(BUILD)/user/shell.elf $(BUILD)/user/nettest.elf $(BUILD)/user/desktop-image.elf Makefile
 	@mkdir -p $(@D)
 	$(NASM) -f elf64 -g -F dwarf -DUSER_BUILD='"$(abspath $(BUILD))/user"' $< -o $@
 
@@ -166,6 +177,10 @@ test-host: $(LIMINE)/.ready $(BUILD)/user/probe.elf
 	$(BUILD)/tests/text-test
 	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/net_test.c kernel/net/stack.c -o $(BUILD)/tests/net-test
 	$(BUILD)/tests/net-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Iuserland/runtime tests/window_test.c userland/runtime/window.c userland/runtime/text.c -o $(BUILD)/tests/window-test
+	$(BUILD)/tests/window-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel -I$(LIMINE) tests/display_test.c kernel/gui/display.c -o $(BUILD)/tests/display-test
+	$(BUILD)/tests/display-test
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi
@@ -204,3 +219,11 @@ shell:
 .PHONY: test-network
 test-network:
 	$(PYTHON) tests/network_test.py
+
+.PHONY: desktop test-desktop
+desktop:
+	$(MAKE) -j2 BUILD=build/desktop BOOT_TEST=desktop iso
+	$(PYTHON) tools/qemu.py --iso build/desktop/agenticos.iso --display $(QEMU_DISPLAY)
+test-desktop:
+	$(PYTHON) tests/desktop_test.py
+-include $(wildcard $(BUILD)/user/*.d)

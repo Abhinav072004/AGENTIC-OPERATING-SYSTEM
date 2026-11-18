@@ -17,7 +17,7 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 8 | Extend tested QEMU drivers: keyboard, timer, storage, mouse, PCI, network; serial/display are initial prerequisites | Week 8 verified: real PS/2, ATA scratch I/O and 24-frame e1000 BIOS/UEFI tests |
 | 9 | Shell parsing, helpful errors, system/process/file commands; move shell into user space | Week 9 verified: parser fuzz, native command batch, interactive BIOS/UEFI and user regression |
 | 10 | Ethernet -> ARP -> IPv4 -> ICMP -> UDP -> TCP -> sockets, one tested layer at a time | Week 10 verified: packet sanitizers + native BIOS/UEFI peer, loss/retry, client/server and failure checks |
-| 11 | Native framebuffer renderer, cursor, movable windows, taskbar, launcher, terminal/file manager/calculator | Planned |
+| 11 | Native framebuffer renderer, cursor, movable windows, taskbar, launcher, terminal/file manager/calculator | Week 11 verified: drawing/model sanitizers + real BIOS/UEFI graphical workflows |
 | 12 | Permissions, syscall validation, process isolation, resource cleanup, error recovery and security review | Planned |
 | 13 | Native editor, calculator, file manager, system monitor, terminal and settings | Planned |
 | 14 | Repeatable release builds, BIOS/UEFI regression coverage, manuals and explicit hardware-test procedure | Planned |

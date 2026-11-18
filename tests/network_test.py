@@ -159,7 +159,7 @@ def run(firmware):
                         try: frame, address = endpoint.recvfrom(4096)
                         except BlockingIOError: break
                         peer.receive(frame, address)
-                    if 'AGENTICOS: PHASE10 PASS' in text: break
+                    if 'AGENTICOS: PHASE11 PASS' in text: break
                     time.sleep(0.005)
                 else: raise TimeoutError(text[-5000:])
                 assert 'AGENTICOS: NETWORK SOCKET PASS' in text and 'native network checks passed' in text

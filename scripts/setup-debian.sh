@@ -18,7 +18,7 @@ case "$AGENTICOS_TOOLS" in
     /*) ;;
     *) echo 'AGENTICOS_TOOLS must be an absolute path' >&2; exit 1 ;;
 esac
-for tool in /usr/bin/apt-get dpkg-deb cc make curl tar sha256sum python3; do
+for tool in /usr/bin/apt-get dpkg-deb cc make curl tar sha256sum python3 objcopy; do
     command -v "$tool" >/dev/null || { echo "Missing prerequisite: $tool" >&2; exit 1; }
 done
 mkdir -p "$AGENTICOS_TOOLS/apt/lists/partial" "$AGENTICOS_TOOLS/apt/archives/partial" \

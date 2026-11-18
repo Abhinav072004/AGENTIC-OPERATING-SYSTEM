@@ -12,7 +12,10 @@ struct user_process {
     struct fs_handles files;
     uint64_t parent;
     char name[24];
-    bool live, entered, terminal;
+    char output[2048];
+    size_t output_bytes;
+    uint64_t stdout_parent;
+    bool live, entered, terminal, display;
 };
 struct user_process *user_find(uint64_t pid);
 bool user_process_start(const void *image, size_t length, const char *name, uint64_t mode,

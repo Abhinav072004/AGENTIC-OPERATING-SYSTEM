@@ -11,6 +11,8 @@
 #include "system.h"
 #include "net/stack.h"
 #include "net/syscall.h"
+#include "gui/syscall.h"
+#include "runtime/memory.h"
 
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
     KASSERT(task_is_user() && (frame->cs & 3u) == 3);
@@ -51,11 +53,17 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
             if (write) {
                 KASSERT(copy_from_user(&process->space.vm, buffer, address, (size_t)count));
                 for (size_t i = 0; i < (size_t)count; ++i) {
-                    if (process->terminal && (buffer[i] == '\n' || buffer[i] == '\r' || buffer[i] == '\t' || buffer[i] == '\b')) { continue; }
+                    if ((process->terminal || process->stdout_parent != 0) && (buffer[i] == '\n' || buffer[i] == '\r' || buffer[i] == '\t' || buffer[i] == '\b')) { continue; }
                     if ((unsigned char)buffer[i] < 32 || (unsigned char)buffer[i] > 126) { buffer[i] = '?'; }
                 }
                 buffer[count] = '\0';
-                if (process->terminal) { serial_write(buffer); }
+                struct user_process *parent = user_find(process->stdout_parent);
+                if (parent != NULL && parent->display) {
+                    size_t room = sizeof(parent->output) - parent->output_bytes;
+                    size_t amount = (size_t)count < room ? (size_t)count : room;
+                    memcpy(parent->output + parent->output_bytes, buffer, amount); parent->output_bytes += amount;
+                }
+                else if (process->terminal) { serial_write(buffer); }
                 else { klog(LOG_INFO, "user-output", "pid=%llu fd=%llu text=\"%s\" bytes=%u",
                      (unsigned long long)process->pid, (unsigned long long)fd, buffer, (unsigned int)count);
                 }
@@ -69,6 +77,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
         }
     } else if (number >= SYS_SYSTEM && number <= SYS_SLEEP) { result = system_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else if (number >= SYS_NET_SOCKET && number <= SYS_NET_SHUTDOWN) { result = network_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
+    else if (number >= SYS_GUI_DRAW && number <= SYS_GUI_PRESENT) { result = gui_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else { result = fs_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     if (result < 0) { ++process->rejected_calls; }
     frame->rax = (uint64_t)result;

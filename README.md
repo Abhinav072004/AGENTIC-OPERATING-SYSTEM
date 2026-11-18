@@ -5,15 +5,17 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 10 / Phase 10 — native networking, verified in QEMU.**
+**Current milestone: Week 11 / Phase 11 — native desktop, verified in QEMU.**
 Run `./scripts/env.sh make shell` for the interactive serial shell. It supports
 quoted commands, filesystem workflows, system/process inspection and native
 child execution with wait/cleanup. The normal ISO runs bounded acceptance,
-reports `AGENTICOS: PHASE10 PASS`, then halts. Files remain volatile.
+reports `AGENTICOS: PHASE11 PASS`, then halts. Files remain volatile.
 See [shell commands](docs/SHELL.md), [filesystem ABI](docs/FILESYSTEM.md),
-[drivers](docs/DRIVERS.md) and [network stack](docs/NETWORK.md) and [Week 10 evidence](docs/reports/phase-10.md).
+[drivers](docs/DRIVERS.md) and [network stack](docs/NETWORK.md) and [desktop](docs/DESKTOP.md) and [Week 11 evidence](docs/reports/phase-11.md).
 Native sockets add ARP, IPv4, ICMP, UDP and bounded TCP client/server behavior.
 Networking is optional and uses static addressing; see its documented limits.
+The native desktop adds movable windows, a launcher, taskbar, terminal, file
+manager and calculator, with checked drawing/input and a software back buffer.
 The owner has authorized sequential completion of the remaining roadmap.
 
 ## Build and test
@@ -35,6 +37,8 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-drivers       # PS/2, PCI, private ATA disk and Ethernet rings
 ./scripts/env.sh make test-shell         # interactive serial shell on BIOS and UEFI
 ./scripts/env.sh make test-network       # real native Ethernet/IP/socket exchanges
+./scripts/env.sh make test-desktop       # real framebuffer and PS/2 desktop workflows
+./scripts/env.sh make desktop            # local GTK desktop; see docs for VNC
 ./scripts/env.sh make shell              # use the native serial shell
 ./scripts/env.sh make run                # BIOS, serial on terminal; Ctrl+C to exit
 ./scripts/env.sh make run-uefi           # UEFI equivalent

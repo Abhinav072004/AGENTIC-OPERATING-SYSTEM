@@ -4,7 +4,7 @@
 
 Debian GNU/Linux 13.6 (trixie), x86_64, five available CPUs, approximately 33 GiB
 RAM and 60 GiB available disk at inspection. Initially present: GCC 14.2.0,
-Make 4.4.1, Python 3.12.14, Git 2.52.0, curl, tar and SHA-256 utilities.
+Make 4.4.1, GNU objcopy (binutils), Python 3.12.14, Git 2.52.0, curl, tar and SHA-256 utilities.
 Clang/LLD, NASM, QEMU, GDB and xorriso were initially absent. There is no sudo
 or scoped system-package helper on this host. Ordinary `apt-get update` failed
 because system package directories are read-only.

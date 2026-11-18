@@ -29,4 +29,10 @@ global user_nettest_start, user_nettest_end
 user_nettest_start:
     incbin nettest_file
 user_nettest_end:
+align 16
+global user_desktop_start, user_desktop_end
+%strcat desktop_file USER_BUILD, "/desktop-image.elf"
+user_desktop_start:
+    incbin desktop_file
+user_desktop_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

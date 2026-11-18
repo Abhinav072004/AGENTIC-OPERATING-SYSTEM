@@ -1,5 +1,16 @@
 # Change log
 
+## 0.11.0 — 2026-11-18 (Week 11)
+
+- Add a native user-space desktop, checked rectangle/text/input services and
+  a supervisor back buffer with explicit presentation and complete reclamation.
+- Implement mouse cursor, focus/z-order, dragging, taskbar, launcher and window
+  close/reopen, plus terminal, file browsing/preview and integer calculator.
+- Share shell commands between serial and graphical terminals; capture bounded
+  child output without retaining user pointers. Ship stripped desktop ELF data.
+- Test clipping, signed extremes, pitch guards, model limits and actual PS/2
+  workflows on BIOS/UEFI; stabilize framebuffer captures after redraws.
+
 ## 0.10.0 — 2026-11-18 (Week 10)
 
 - Add checked Ethernet/ARP/IPv4/ICMP/UDP and bounded TCP client/server sockets.

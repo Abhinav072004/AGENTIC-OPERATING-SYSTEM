@@ -82,6 +82,8 @@ long user_spawn_path(const char *path, uint64_t mode, uint64_t parent, bool term
     if (!loaded) { return FS_EINVAL; }
     struct user_process *process = user_find(pid); KASSERT(process != NULL);
     process->parent = parent; process->terminal = terminal;
+    struct user_process *creator = user_find(parent);
+    if (creator != NULL && creator->display) { process->stdout_parent = parent; }
     return (long)pid;
 }
 void user_bad_context(const struct interrupt_frame *frame) {
