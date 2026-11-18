@@ -56,6 +56,7 @@ bool user_process_reap(uint64_t pid, int *status) {
     if (process == NULL || !task_get_info(process->tid, &task) || task.state != TASK_ZOMBIE || process->space.vm.active) {
         irq_restore(flags); return false;
     }
+    fs_close_all(&process->files);
     KASSERT(user_space_destroy(&process->space));
     KASSERT(task_reap_user(process->tid, status) && task_process_destroy(pid));
     memset(process, 0, sizeof(*process));

@@ -5,15 +5,14 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Week 6 / Phase 6 — user mode and syscalls, verified in QEMU.**
-AgenticOS loads native C ELF programs into separate ring-3 address spaces,
-preempts them through the timer, and provides checked `write`, `read`, `exit`,
-`getpid` and `yield` syscalls. User faults terminate the offending process while
-the kernel and a second process continue. Boot verifies isolation, buffers and
-resource recovery, masks IRQs, reports `AGENTICOS: PHASE6 PASS`, then halts.
-The kernel retains its task, memory and interrupt foundations. AI runtime,
-shell, filesystem, networking and desktop remain future work.
-Phase 7 (VFS and a RAM filesystem) awaits owner approval.
+**Current milestone: Week 7 / Phase 7 — RAM filesystem, verified in QEMU.**
+AgenticOS runs isolated native ELF programs with checked console, process and
+file syscalls. The RAM VFS supports directories, bounded sparse files, per-process
+descriptors, rename, enumeration and open-file lifetime after deletion. Boot
+loads a native test through the VFS, contains its deliberate fault, reclaims
+resources, reports `AGENTICOS: PHASE7 PASS`, then halts. Files are volatile.
+See [filesystem ABI](docs/FILESYSTEM.md) and [Week 7 evidence](docs/reports/phase-7.md).
+The owner has authorized sequential completion of the remaining roadmap.
 
 ## Build and test
 
@@ -69,7 +68,7 @@ kernel/
   process/               PCB groups and retained thread/address-space metadata
   user/                  Bounded ELF loader, private mappings, copies and containment
   syscall/               Shared native ABI and validated console/process dispatch
-  filesystem/            Reserved for Phase 7
+  fs/                    RAM VFS, per-process descriptors and checked file syscalls
 userland/
   runtime/               Native entry, linker and syscall wrappers
   applications/          Native hello and user/isolation check programs

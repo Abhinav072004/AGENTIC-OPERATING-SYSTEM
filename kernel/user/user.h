@@ -2,11 +2,14 @@
 #define AGENTICOS_USER_H
 #include "space.h"
 #include "arch/x86_64/interrupts.h"
+#include "fs/vfs.h"
+#include "syscall/abi.h"
 #define USER_FAULT_STATUS(vector) (-256 - (int)(vector))
 #define USER_BAD_CONTEXT (-300)
 struct user_process {
     struct user_space space;
-    uint64_t pid, tid, calls[6], rejected_calls, timer_entries;
+    uint64_t pid, tid, calls[SYS_COUNT], rejected_calls, timer_entries;
+    struct fs_handles files;
     const char *name;
     bool live, entered;
 };

@@ -7,6 +7,15 @@
 #define SYS_EXIT UINT64_C(3)
 #define SYS_GETPID UINT64_C(4)
 #define SYS_YIELD UINT64_C(5)
+#define SYS_OPEN UINT64_C(6)
+#define SYS_CLOSE UINT64_C(7)
+#define SYS_SEEK UINT64_C(8)
+#define SYS_MKDIR UINT64_C(9)
+#define SYS_UNLINK UINT64_C(10)
+#define SYS_RENAME UINT64_C(11)
+#define SYS_STAT UINT64_C(12)
+#define SYS_LIST UINT64_C(13)
+#define SYS_COUNT 64u
 #define SYS_IO_MAX 128u
 #define SYS_E2BIG (-7L)
 #define SYS_EBADF (-9L)

@@ -7,6 +7,7 @@
 #include "debug/log.h"
 #include "debug/panic.h"
 #include <limits.h>
+#include "fs/syscall.h"
 
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
     KASSERT(task_is_user() && (frame->cs & 3u) == 3);
@@ -22,7 +23,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
              (void *)(uintptr_t)top, (void *)frame);
     }
     uint64_t number = frame->rax;
-    if (number >= SYS_WRITE && number <= SYS_YIELD) { ++process->calls[number]; }
+    if (number < SYS_COUNT) { ++process->calls[number]; }
     long result = SYS_ENOSYS;
     if (number == SYS_GETPID) { result = (long)process->pid; }
     else if (number == SYS_YIELD) {
@@ -32,6 +33,8 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
         int64_t status = (int64_t)frame->rdi;
         if (status < INT_MIN || status > INT_MAX) { result = SYS_EINVAL; }
         else { return task_finish_user(frame, (int)status); }
+    } else if ((number == SYS_WRITE || number == SYS_READ) && frame->rdi >= 3) {
+        result = fs_syscall(process, number, frame->rdi, frame->rsi, frame->rdx);
     } else if (number == SYS_WRITE || number == SYS_READ) {
         uint64_t fd = frame->rdi, address = frame->rsi, count = frame->rdx;
         bool write = number == SYS_WRITE;
@@ -57,7 +60,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
                 result = (long)received;
             }
         }
-    }
+    } else { result = fs_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     if (result < 0) { ++process->rejected_calls; }
     frame->rax = (uint64_t)result;
     return user_return(frame);

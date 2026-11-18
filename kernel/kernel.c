@@ -11,6 +11,7 @@
 #include "interrupts/interrupts.h"
 #include "scheduler/task.h"
 #include "user/user.h"
+#include "fs/vfs.h"
 #if CONFIG_SELFTEST == 21
 _Noreturn void user_boot_failure_probe(void);
 #endif
@@ -164,5 +165,7 @@ _Noreturn void kernel_main(void) {
     user_self_test();
     klog(LOG_INFO, "boot", "User foundation initialized; halting");
     serial_write("AGENTICOS: PHASE6 PASS\n");
+    fs_self_test();
+    serial_write("AGENTICOS: PHASE7 PASS\n");
     cpu_halt();
 }

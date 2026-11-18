@@ -27,7 +27,7 @@ SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c \
     kernel/process/process.c kernel/scheduler/core.c kernel/scheduler/stack.c \
     kernel/scheduler/task.c kernel/scheduler/selftest.c kernel/user/elf.c \
-    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c
+    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c
 ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm kernel/arch/x86_64/task_probe.asm kernel/user/images.asm
 ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
 SOURCES += tests/guest/memory_probe.c
@@ -69,7 +69,7 @@ USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffreestanding -
     -fno-stack-protector -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables \
     -mno-red-zone -mgeneral-regs-only -Wall -Wextra -Werror -Wpedantic -Wconversion \
     -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime
-.SECONDARY: $(BUILD)/user/hello.o $(BUILD)/user/probe.o
+.SECONDARY: $(BUILD)/user/hello.o $(BUILD)/user/probe.o $(BUILD)/user/fstest.o
 $(BUILD)/user/%.o: userland/applications/%.c userland/runtime/syscall.h kernel/syscall/abi.h kernel/user/elf.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
@@ -79,7 +79,7 @@ $(BUILD)/user/start.o: userland/runtime/start.asm Makefile
 $(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o userland/runtime/linker.ld
 	$(LD) -nostdlib -static -z max-page-size=0x1000 -z noexecstack --build-id=none \
 	    -T userland/runtime/linker.ld $(BUILD)/user/start.o $< -o $@
-$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(BUILD)/user/hello.elf $(BUILD)/user/probe.elf Makefile
+$(BUILD)/kernel/user/images.o: kernel/user/images.asm $(BUILD)/user/hello.elf $(BUILD)/user/probe.elf $(BUILD)/user/fstest.elf Makefile
 	@mkdir -p $(@D)
 	$(NASM) -f elf64 -g -F dwarf -DUSER_BUILD='"$(abspath $(BUILD))/user"' $< -o $@
 
@@ -155,6 +155,8 @@ test-host: $(LIMINE)/.ready $(BUILD)/user/probe.elf
 	    tests/user_test.c kernel/user/elf.c kernel/user/copy.c kernel/user/space.c kernel/user/frame.c \
 	    kernel/arch/x86_64/paging.c kernel/memory/pmm.c -o $(BUILD)/tests/user-test
 	$(BUILD)/tests/user-test $(BUILD)/user/probe.elf
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/fs_test.c kernel/fs/vfs.c -o $(BUILD)/tests/fs-test
+	$(BUILD)/tests/fs-test
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi

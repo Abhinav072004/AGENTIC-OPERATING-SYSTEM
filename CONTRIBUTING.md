@@ -10,7 +10,8 @@ run the relevant checks and QEMU regressions, update the roadmap/change log and
 write a report with real evidence and remaining limits. Make a meaningful local
 commit after verification. Pushing or publishing is a separate action.
 
-Do not begin the next phase until the project owner approves it. A new phase
+The owner authorized completion of all remaining milestones and pushes to main
+on 2026-11-18; continue sequentially after each verified commit. A new phase
 should explain the OS concepts and its acceptance criteria before expansion.
 Do not count scaffolding, trivial zero-test passes or unexecuted checks as
 completed features. Preserve unrelated files and never attach a host disk or

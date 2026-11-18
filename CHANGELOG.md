@@ -1,5 +1,15 @@
 # Change log
 
+## 0.7.0 — 2026-11-18 (Week 7)
+
+- Add hierarchical RAM VFS, bounded sparse files, atomic storage quotas, file
+  descriptors, open-unlink lifetime, directory enumeration and safe rename.
+- Expose checked file syscalls and close all descriptors when reaping processes.
+- Seed native programs and configuration; load the native FS acceptance ELF
+  through the VFS and verify normal and faulted-process resource cleanup.
+- Add ASan/UBSan quota/path/lifetime tests and BIOS/UEFI acceptance.
+- Record the owner’s authorization to complete and push remaining milestones.
+
 ## 0.6.0 — 2026-11-18 (Week 6)
 
 - Load bounded native ELF64 programs into private user page trees, with shared
