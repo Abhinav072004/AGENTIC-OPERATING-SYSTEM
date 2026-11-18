@@ -11,11 +11,13 @@ static long path_call(uint64_t call, const char *path, uint64_t b, uint64_t c) {
 static long wait_child(uint64_t pid) { int status; long result; do { result = user_call(SYS_WAIT, pid, (uintptr_t)&status, 0); if (result == SYS_EAGAIN) { (void)user_call(SYS_SLEEP, 1, 0, 0); } } while (result == SYS_EAGAIN); if (result < 0) { return result; } char captured[SYS_IO_MAX+1]; long bytes; bool captured_any = false, newline = false; while ((bytes = user_call(SYS_GUI_CAPTURE, (uintptr_t)captured, SYS_IO_MAX, 0)) > 0) { captured[bytes] = 0; captured_any = true; newline = captured[bytes-1] == '\n'; output(captured); } if (captured_any && !newline) { output("\n"); } output("exit="); number(status); output("\n"); return status; }
 static long execute(int count, char **args) {
     const char *command = args[0];
-    if (text_equal(command, "help")) { output("help echo uname uptime mem ps pid pwd cd ls mkdir touch cat write append rm mv stat run wait kill exit\n"); return 0; }
+    if (text_equal(command, "help")) { output("help echo uname uptime mem ps pid id pwd cd ls mkdir touch cat write append rm mv stat chmod run wait kill exit\n"); return 0; }
     if (text_equal(command, "exit")) { leaving = true; return 0; }
     if (text_equal(command, "echo")) { for (int i = 1; i < count; ++i) { if (i > 1) { output(" "); } output(args[i]); } output("\n"); return 0; }
     if (text_equal(command, "pwd")) { output(cwd); output("\n"); return 0; }
     if (text_equal(command, "pid")) { number(user_call(SYS_GETPID, 0, 0, 0)); output("\n"); return 0; }
+    if (text_equal(command, "id")) { struct self_info info; long result = user_call(SYS_SELF,(uintptr_t)&info,0,0); if (result < 0) { return result; } output("uid="); number(info.uid); output(" capabilities="); number((int64_t)info.capabilities); output("\n"); return 0; }
+    if (text_equal(command, "chmod")) { if (count != 3) { return FS_EINVAL; } uint32_t mode = 0; for (size_t i = 0; args[1][i] != 0; ++i) { if (args[1][i] < '0' || args[1][i] > '7' || mode > 0177) { return FS_EINVAL; } mode = mode*8u+(uint32_t)(args[1][i]-'0'); } char target[128]; if (args[1][0] == 0 || !text_path(cwd,args[2],target)) { return FS_EINVAL; } return path_call(SYS_CHMOD,target,mode,0); }
     if (text_equal(command, "uname") || text_equal(command, "uptime") || text_equal(command, "mem")) {
         struct system_info info; long result = user_call(SYS_SYSTEM, (uintptr_t)&info, 0, 0); if (result < 0) { return result; }
         if (text_equal(command, "uname")) { output("AgenticOS "); output(info.version); output(" x86_64\n"); }
@@ -57,7 +59,7 @@ static const char *error_text(long error) {
     if (error == FS_ENOSPC) { return "RAM storage or process capacity exhausted"; }
     if (error == FS_ENOTEMPTY) { return "directory is not empty"; }
     if (error == FS_EINVAL) { return "invalid arguments or path; type help"; }
-    if (error == SYS_EPERM) { return "permission denied"; }
+    if (error == SYS_EPERM || error == FS_EACCES) { return "permission denied"; }
     if (error == SYS_ESRCH) { return "process not found"; }
     if (error == SYS_ENOSYS) { return "unknown command; type help"; }
     return "operation failed";

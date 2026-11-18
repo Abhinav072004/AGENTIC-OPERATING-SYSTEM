@@ -10,7 +10,8 @@ struct user_process {
     struct user_space space;
     uint64_t pid, tid, calls[SYS_COUNT], rejected_calls, timer_entries;
     struct fs_handles files;
-    uint64_t parent;
+    uint64_t parent, capabilities, cpu_budget, syscall_budget, syscall_count;
+    uint32_t uid;
     char name[24];
     char output[2048];
     size_t output_bytes;
@@ -29,5 +30,7 @@ struct interrupt_frame *user_return(struct interrupt_frame *frame);
 struct interrupt_frame *user_fault(struct interrupt_frame *frame);
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame);
 void user_self_test(void);
+void user_cancel_children(uint64_t pid);
+bool user_budget_expired(void);
 long user_spawn_path(const char *path, uint64_t mode, uint64_t parent, bool terminal);
 #endif

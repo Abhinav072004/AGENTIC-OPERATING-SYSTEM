@@ -38,6 +38,18 @@ int main(void) {
     assert(fs_open(&files, "/../bad", FS_CREATE | FS_WRITE) == FS_EINVAL);
     char long_path[FS_PATH_MAX + 1]; memset(long_path, 'a', sizeof(long_path)); long_path[0] = '/'; long_path[FS_PATH_MAX] = 0;
     assert(fs_open(&files, long_path, FS_READ) == FS_ENAMETOOLONG);
-    puts("PASS: RAM VFS hierarchy, cross-block/sparse data, descriptor exhaustion, atomic quota failure, rename cycles, open-unlink and cleanup");
+    fs_init(); assert(fs_mkdir("/home") == 0 && fs_mkdir("/tmp") == 0 && fs_mkdir("/bin") == 0);
+    assert(fs_chown("/home",1000) == 0 && fs_chmod("/home",0700) == 0 && fs_chmod("/tmp",01777) == 0 && fs_chmod("/bin",0755) == 0);
+    assert(fs_seed_program("/bin/program","ELF",3) == 0);
+    fs_set_uid(1000); assert(fs_seed("/tmp/owned","private",7) == 0);
+    fd = fs_open(&files,"/home/secret",FS_CREATE|FS_READ|FS_WRITE); assert(fd == 3 && fs_write(&files,3,"secret",6) == 6);
+    assert(fs_chmod("/home/secret",0000) == 0 && fs_seek(&files,3,0) == 0 && fs_read(&files,3,actual,6) == 6);
+    assert(fs_open(&files,"/home/secret",FS_READ) == FS_EACCES); fs_close_all(&files);
+    fs_set_uid(1001); assert(fs_open(&files,"/home/secret",FS_READ) == FS_EACCES && fs_open(&files,"/bin/program",FS_WRITE) == FS_EACCES);
+    assert(fs_unlink("/tmp/owned") == FS_EACCES && fs_rename("/tmp/owned","/tmp/stolen") == FS_EACCES);
+    assert(fs_chmod("/tmp/owned",0777) == FS_EPERM && fs_chown("/tmp/owned",1001) == FS_EPERM);
+    fd = fs_open(&files,"/tmp/own",FS_CREATE|FS_WRITE); assert(fd == 3 && fs_stat("/tmp/own",&info) == 0 && info.uid == 1001 && info.mode == 0600);
+    assert(fs_unlink("/tmp/own") == 0); fs_close_all(&files); fs_set_uid(0);
+    puts("PASS: RAM VFS hierarchy, cross-block/sparse data, descriptor exhaustion, atomic quota failure, rename cycles, open-unlink, UID/mode/search/sticky permissions and cleanup");
     return 0;
 }

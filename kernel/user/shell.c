@@ -7,7 +7,7 @@
 extern unsigned char user_shell_start[], user_shell_end[];
 void shell_boot(void);
 void shell_boot(void) {
-    KASSERT(fs_seed("/bin/shell", user_shell_start, (size_t)(user_shell_end - user_shell_start)) == 0);
+    KASSERT(fs_seed_program("/bin/shell", user_shell_start, (size_t)(user_shell_end - user_shell_start)) == 0);
     uint64_t frames = memory_frames()->free_frames;
     long pid = user_spawn_path("/bin/shell", CONFIG_SELFTEST == 23 ? 0 : 1, 1, CONFIG_SELFTEST == 23);
     KASSERT(pid > 0);

@@ -19,6 +19,8 @@ static void process_test(void) {
     assert(process_destroy(&table, pids[0]) && process_find(&table, pids[0]) == NULL);
     assert(process_create(&table, NULL, &output) && output > pids[2] && output != pids[0]);
     assert(process_destroy(&table, output));
+    table.next_pid = UINT64_C(1) << 63;
+    assert(!process_create(&table, "overflow", &output));
     table.next_pid = UINT64_MAX;
     assert(!process_create(&table, NULL, &output));
     puts("PASS: PCB capacity, shared root, names, thread ownership, stale PIDs and ID exhaustion");

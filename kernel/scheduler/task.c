@@ -123,6 +123,7 @@ _Noreturn void task_exit(int status) {
 bool task_cancel(uint64_t tid) {
     uint64_t flags = irq_save();
     struct task_control *task = sched_core_find(&core, tid);
+    if (task != NULL && tid != current()->tid && task->state != TASK_ZOMBIE && task->held_mutexes == 0 && storage[(size_t)(task-core.tasks)].user) { user_cancel_children(task->pid); }
     bool result = task != NULL && tid != current()->tid && sched_core_finish(&core, tid, TASK_CANCELLED);
     irq_restore(flags);
     return result;
@@ -208,6 +209,7 @@ bool task_reap_user(uint64_t tid, int *status) {
 }
 bool task_is_user(void) { return active && core.current != 0 && storage[core.current].user; }
 struct interrupt_frame *task_finish_user(struct interrupt_frame *frame, int status) {
+    user_cancel_children(task_pid());
     KASSERT(task_is_user() && (frame->cs & 3u) == 3 && sched_core_finish(&core, current()->tid, status));
     return scheduler_interrupt(frame, false);
 }

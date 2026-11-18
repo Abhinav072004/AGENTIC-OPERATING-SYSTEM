@@ -98,7 +98,7 @@ def run(firmware):
                 assert serial.read_text().count('text="GUI launch"') == 4
                 capture(qmp,output,'desktop-final')
                 qmp.execute('stop'); registers = qmp.execute('human-monitor-command',{'command-line':'info registers'}); (output/'live-registers.txt').write_text(registers); qmp.execute('cont')
-                controls.key('esc'); wait_for('AGENTICOS: PHASE11 PASS')
+                controls.key('esc'); wait_for('AGENTICOS: PHASE12 PASS')
                 registers = qmp.execute('human-monitor-command',{'command-line':'info registers'}); assert 'HLT=1' in registers and 'CPL=0' in registers
                 (output/'registers.txt').write_text(registers)
                 qmp.execute('screendump',{'filename':str(output/'screen.ppm')}); validate_screen(output/'screen.ppm',output/'screen.png')

@@ -5,12 +5,20 @@
 struct node {
     char name[FS_NAME_MAX + 1u];
     size_t size;
+    uint32_t uid, mode;
     uint16_t blocks[FILE_BLOCKS], parent, references;
     bool live, linked, directory;
 };
 static struct node nodes[FS_NODE_MAX];
 static unsigned char data[FS_BLOCK_COUNT][BLOCK_SIZE];
 static bool allocated[FS_BLOCK_COUNT];
+/* Current identity is scoped by syscall wrappers while IF=0. No operation
+ * sleeps or retains this identity. Trusted boot/manager code uses uid 0. */
+static uint32_t current_uid;
+void fs_set_uid(uint32_t uid) { current_uid = uid; }
+static bool allowed(const struct node *node, unsigned int rights) { return current_uid == 0 || ((node->mode >> (current_uid == node->uid ? 6 : 0)) & rights) == rights; }
+static bool mutable_entry(const struct node *node) { const struct node *parent = &nodes[node->parent]; return allowed(parent, 3) && ((parent->mode & 01000u) == 0 || current_uid == 0 || current_uid == parent->uid || current_uid == node->uid); }
+
 static bool equal(const char *a, const char *b) {
     for (size_t i = 0; ; ++i) { if (a[i] != b[i]) { return false; } if (a[i] == '\0') { return true; } }
 }
@@ -33,6 +41,7 @@ static long resolve(const char *path, bool parent_only, char *leaf) {
         while (position < length && path[position] == '/') { ++position; }
         if (position == length) { break; }
         if (!nodes[current].directory) { return FS_ENOTDIR; }
+        if (!allowed(&nodes[current], 1)) { return FS_EACCES; }
         char component[FS_NAME_MAX + 1u] = {0}; size_t count = 0;
         while (position < length && path[position] != '/') {
             if (count == FS_NAME_MAX) { return FS_ENAMETOOLONG; }
@@ -64,12 +73,14 @@ static long create(const char *path, bool directory) {
     char name[FS_NAME_MAX + 1u];
     long parent = resolve(path, true, name);
     if (parent < 0) { return parent; }
+    if (!allowed(&nodes[parent], 3)) { return FS_EACCES; }
     if (child((unsigned int)parent, name) >= 0) { return FS_EEXIST; }
     for (unsigned int i = 1; i < FS_NODE_MAX; ++i) {
         if (nodes[i].live) { continue; }
         memset(&nodes[i], 0, sizeof(nodes[i]));
         memcpy(nodes[i].name, name, sizeof(name));
         nodes[i].parent = (uint16_t)parent;
+        nodes[i].uid = current_uid; nodes[i].mode = directory ? 0700u : 0600u;
         nodes[i].live = nodes[i].linked = true; nodes[i].directory = directory;
         return (long)i;
     }
@@ -77,6 +88,7 @@ static long create(const char *path, bool directory) {
 }
 void fs_init(void) {
     memset(nodes, 0, sizeof(nodes)); memset(allocated, 0, sizeof(allocated));
+    current_uid = 0; nodes[0].mode = 0755;
     nodes[0].live = nodes[0].linked = nodes[0].directory = true;
 }
 long fs_mkdir(const char *path) { long result = create(path, true); return result < 0 ? result : 0; }
@@ -94,6 +106,8 @@ long fs_open(struct fs_handles *handles, const char *path, unsigned int flags) {
     if (index < 0) { return index; }
     struct node *node = &nodes[index];
     if (node->directory) { return FS_EISDIR; }
+    unsigned int rights = ((flags & FS_READ) != 0 ? 4u : 0u) | ((flags & FS_WRITE) != 0 ? 2u : 0u);
+    if (!allowed(node, rights)) { return FS_EACCES; }
     if ((flags & FS_TRUNCATE) != 0) { truncate_node(node); }
     ++node->references;
     handles->fd[slot] = (struct fs_fd){.node = (uint16_t)index, .flags = (uint8_t)flags, .live = true};
@@ -156,6 +170,7 @@ long fs_unlink(const char *path) {
     long index = resolve(path, false, NULL);
     if (index < 0) { return index; }
     if (index == 0) { return FS_EINVAL; }
+    if (!mutable_entry(&nodes[index])) { return FS_EACCES; }
     for (size_t i = 1; i < FS_NODE_MAX; ++i) { if (nodes[i].live && nodes[i].linked && nodes[i].parent == (unsigned long)index) { return FS_ENOTEMPTY; } }
     nodes[index].linked = false; release_node(&nodes[index]); return 0;
 }
@@ -165,6 +180,7 @@ long fs_rename(const char *source, const char *destination) {
     if (index == 0) { return FS_EINVAL; }
     char name[FS_NAME_MAX + 1u]; long parent = resolve(destination, true, name);
     if (parent < 0) { return parent; }
+    if (!mutable_entry(&nodes[index]) || !allowed(&nodes[parent], 3)) { return FS_EACCES; }
     long exists = child((unsigned int)parent, name);
     if (exists == index) { return 0; }
     if (exists >= 0) { return FS_EEXIST; }
@@ -174,7 +190,7 @@ long fs_rename(const char *source, const char *destination) {
     nodes[index].parent = (uint16_t)parent; memcpy(nodes[index].name, name, sizeof(name)); return 0;
 }
 static void info_for(const struct node *node, struct fs_info *info) {
-    *info = (struct fs_info){.size = node->size, .directory = node->directory ? 1u : 0u, .mode = 0700};
+    *info = (struct fs_info){.size = node->size, .directory = node->directory ? 1u : 0u, .mode = node->mode, .uid = node->uid};
 }
 long fs_stat(const char *path, struct fs_info *info) {
     long index = resolve(path, false, NULL); if (index < 0) { return index; }
@@ -183,6 +199,7 @@ long fs_stat(const char *path, struct fs_info *info) {
 long fs_list(const char *path, uint64_t index, struct fs_entry *entry) {
     long parent = resolve(path, false, NULL); if (parent < 0) { return parent; }
     if (!nodes[parent].directory) { return FS_ENOTDIR; }
+    if (!allowed(&nodes[parent], 5)) { return FS_EACCES; }
     uint64_t position = 0;
     for (size_t i = 1; i < FS_NODE_MAX; ++i) {
         if (!nodes[i].live || !nodes[i].linked || nodes[i].parent != (unsigned long)parent) { continue; }
@@ -195,6 +212,20 @@ long fs_seed(const char *path, const void *bytes, size_t length) {
     long fd = fs_open(&handles, path, FS_CREATE | FS_WRITE | FS_TRUNCATE);
     if (fd < 0) { return fd; }
     long result = fs_write(&handles, (uint64_t)fd, bytes, length); (void)fs_close(&handles, (uint64_t)fd);
-    return result < 0 ? result : 0;
+    return result < 0 ? result : fs_chmod(path, 0644);
+}
+long fs_chmod(const char *path, uint32_t mode) {
+    if ((mode & ~01777u) != 0) { return FS_EINVAL; }
+    long index = resolve(path, false, NULL); if (index < 0) { return index; }
+    if (current_uid != 0 && current_uid != nodes[index].uid) { return FS_EPERM; }
+    nodes[index].mode = mode; return 0;
+}
+long fs_chown(const char *path, uint32_t uid) {
+    if (current_uid != 0) { return FS_EPERM; }
+    long index = resolve(path, false, NULL); if (index < 0) { return index; }
+    nodes[index].uid = uid; return 0;
+}
+long fs_seed_program(const char *path, const void *bytes, size_t length) {
+    long result = fs_seed(path, bytes, length); return result < 0 ? result : fs_chmod(path, 0755);
 }
 size_t fs_used_blocks(void) { size_t used = 0; for (size_t i = 0; i < FS_BLOCK_COUNT; ++i) { if (allocated[i]) { ++used; } } return used; }

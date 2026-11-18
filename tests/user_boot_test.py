@@ -40,14 +40,15 @@ def validate(text, registers, gdt, user_registers, scenario):
     assert 0x400000 <= register(user_registers, "RIP") < 0x800000
     assert 0x70000000 <= register(user_registers, "RSP") < 0x70004000
     assert register(user_registers, "CR3") != int(root[1], 16) and not register(user_registers, "RFL") & 0x3000
-    entry_records = re.findall(r"\[user-enter\] case=(\w+) pid=(\d+) cr3=0x([0-9a-f]+) cs=0x2b ss=0x33 rsp0=0x([0-9a-f]+) frame=0x([0-9a-f]+)", text)
-    entry_records = [item for item in entry_records if item[0] != "filesystem"]
+    entry_records = re.findall(r"\[user-enter\] case=([^ ]+) pid=(\d+) cr3=0x([0-9a-f]+) cs=0x2b ss=0x33 rsp0=0x([0-9a-f]+) frame=0x([0-9a-f]+)", text)
+    all_entry_records = entry_records
+    entry_records = [item for item in entry_records if item[0] not in ("filesystem", "security") and not item[0].startswith("/")]
     assert text.count("AGENTICOS: FS USER PASS") == 1
     rounds = 4 if scenario == "stress" else 1
     assert len(entry_records) == 17 + 2 * rounds + (1 if scenario == "io" else 0)
     assert len({item[1] for item in entry_records}) == len(entry_records)
     assert all(0 <= int(item[3], 16) - int(item[4], 16) <= 16384 for item in entry_records)
-    assert register(user_registers, "CR3") in {int(item[2], 16) for item in entry_records}
+    assert register(user_registers, "CR3") in {int(item[2], 16) for item in all_entry_records}
     pairs = re.findall(r"\[user-test\] round=(\d+) roots=0x([0-9a-f]+),0x([0-9a-f]+) data_frames=0x([0-9a-f]+),0x([0-9a-f]+); CPL3 preemption, private data and five checked syscalls passed", text)
     assert [int(item[0]) for item in pairs] == list(range(1, rounds + 1))
     assert all(item[1] != item[2] and item[3] != item[4] for item in pairs)
@@ -111,7 +112,7 @@ def run(args):
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
-                expected = "[PANIC] [panic]" if args.scenario == "reject" else "AGENTICOS: PHASE11 PASS\n"
+                expected = "[PANIC] [panic]" if args.scenario == "reject" else "AGENTICOS: PHASE12 PASS\n"
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     if args.scenario == "io" and channel is None and uart_path.exists():

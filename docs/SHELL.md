@@ -8,10 +8,10 @@ The normal ISO runs a bounded automated native shell check and halts.
 
 Commands:
 
-- `help`, `echo`, `uname`, `uptime`, `mem`, `pid`, `ps`
+- `help`, `echo`, `uname`, `uptime`, `mem`, `pid`, `ps`, `id`
 - `pwd`, `cd PATH`, `ls [PATH]`, `mkdir PATH`, `touch PATH`
 - `cat PATH`, `write PATH TEXT`, `append PATH TEXT`, `stat PATH`
-- `mv SOURCE DESTINATION`, `rm PATH`
+- `mv SOURCE DESTINATION`, `rm PATH`, `chmod OCTAL_MODE PATH`
 - `run /bin/hello`, `run /bin/probe`, `wait PID`, `kill PID`, `exit`
 
 Single/double quotes preserve spaces; backslash escapes the following character
@@ -47,7 +47,8 @@ The single-CPU scheduler now permits serialized child creation and off-current
 zombie reaping during an active run. Existing upper-half stack subtrees are
 shared, and newly allocated private lower mappings are never installed in the
 parent root. Automated acceptance verifies child output/status and exact frame
-recovery. Orphan policy and broader access-control hardening are Phase 12 work.
+recovery. Phase 12 adds capabilities, UID/mode/search/sticky checks, process budgets and
+recursive orphan cleanup; see [SECURITY.md](SECURITY.md).
 
 `./scripts/env.sh make test-shell` runs an actual bidirectional serial session
 on BIOS and UEFI. Evidence is under `build/tests/shell-{bios,uefi}`.

@@ -6,6 +6,7 @@
 #include "runtime/memory.h"
 long system_syscall(struct user_process *process, uint64_t number, uint64_t a, uint64_t b, uint64_t c) {
     (void)c;
+    if (number == SYS_SELF) { struct self_info info = {.pid = process->pid,.capabilities = process->capabilities,.cpu_budget = process->cpu_budget,.syscall_budget = process->syscall_budget,.uid = process->uid}; return copy_to_user(&process->space.vm,a,&info,sizeof(info)) ? 0 : SYS_EFAULT; }
     if (number == SYS_SYSTEM) {
         struct system_info info = {.ticks = interrupts_ticks(), .free_frames = memory_frames()->free_frames,
             .managed_frames = memory_frames()->managed_frames, .fs_blocks = fs_used_blocks()};

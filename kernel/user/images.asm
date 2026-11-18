@@ -35,4 +35,10 @@ global user_desktop_start, user_desktop_end
 user_desktop_start:
     incbin desktop_file
 user_desktop_end:
+align 16
+global user_security_start, user_security_end
+%strcat security_file USER_BUILD, "/security.elf"
+user_security_start:
+    incbin security_file
+user_security_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

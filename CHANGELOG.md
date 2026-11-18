@@ -1,5 +1,17 @@
 # Change log
 
+## 0.12.0 — 2026-11-18 (Week 12)
+
+- Enforce process capabilities and RAM-file owner/other/search/sticky modes;
+  scope filesystem identity, validate program execution and preserve root seeds.
+- Add owner-only chmod, root-only chown, own identity snapshots and shell id/chmod.
+  Extend file metadata and bump the experimental native ABI to version 2.
+- Contain runaway CPU/syscall budgets, recursively cancel/reap descendants and
+  close their descriptors/sockets; keep process IDs in signed syscall range.
+- Exercise native denial, UID, orphan, budget and malformed-argument scenarios
+  with exact resource recovery; retain user-mode, desktop/network regressions.
+- Document the trusted boundary and explicit security limitations.
+
 ## 0.11.0 — 2026-11-18 (Week 11)
 
 - Add a native user-space desktop, checked rectangle/text/input services and

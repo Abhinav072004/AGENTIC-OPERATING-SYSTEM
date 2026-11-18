@@ -8,6 +8,7 @@
 #include "debug/panic.h"
 #include "runtime/memory.h"
 #include "net/stack.h"
+#include "security/policy.h"
 static struct user_process processes[PROCESS_CAPACITY - 1u];
 struct user_process *user_find(uint64_t pid) {
     for (size_t i = 0; i < PROCESS_CAPACITY - 1u; ++i) { if (processes[i].live && processes[i].pid == pid) { return &processes[i]; } }
@@ -44,6 +45,7 @@ bool user_process_start(const void *image, size_t length, const char *name, uint
         KASSERT(task_cancel(new_tid) && task_reap_user(new_tid, NULL) && task_process_destroy(new_pid));
         irq_restore(flags); return false;
     }
+    process->uid = 1000; process->capabilities = CAP_SESSION;
     process->pid = new_pid; process->tid = new_tid; process->live = true;
     for (size_t i = 0; i + 1 < sizeof(process->name) && name[i] != '\0'; ++i) { process->name[i] = name[i]; }
     KASSERT(task_process_bind_user(new_pid, process->space.vm.root));
@@ -58,6 +60,7 @@ bool user_process_reap(uint64_t pid, int *status) {
     if (process == NULL || !task_get_info(process->tid, &task) || task.state != TASK_ZOMBIE || process->space.vm.active) {
         irq_restore(flags); return false;
     }
+    for (size_t i = 0; i < PROCESS_CAPACITY - 1u; ++i) { if (processes[i].live && processes[i].parent == pid) { KASSERT(user_process_reap(processes[i].pid, NULL)); } }
     net_release(process->pid);
     fs_close_all(&process->files);
     KASSERT(user_space_destroy(&process->space));
@@ -66,25 +69,43 @@ bool user_process_reap(uint64_t pid, int *status) {
     irq_restore(flags);
     return true;
 }
+/* Image I/O is scoped to the creator's UID. No scheduling occurs while the
+ * RAM filesystem identity is changed; reset it before every exit path. */
 long user_spawn_path(const char *path, uint64_t mode, uint64_t parent, bool terminal) {
+    struct user_process *creator = user_find(parent);
+    fs_set_uid(creator == NULL ? 0 : creator->uid);
     struct fs_info info; long result = fs_stat(path, &info);
-    if (result < 0) { return result; }
-    if (info.directory != 0) { return FS_EISDIR; }
-    if (info.size == 0 || info.size > FS_FILE_MAX) { return FS_EINVAL; }
-    struct fs_handles files = {0};
-    long fd = fs_open(&files, path, FS_READ); if (fd < 0) { return fd; }
-    void *image = kmalloc((size_t)info.size);
-    if (image == NULL) { fs_close_all(&files); return FS_ENOSPC; }
-    result = fs_read(&files, (uint64_t)fd, image, (size_t)info.size); fs_close_all(&files);
+    if (result == 0 && info.directory != 0) { result = FS_EISDIR; }
+    if (result == 0 && (info.size == 0 || info.size > FS_FILE_MAX)) { result = FS_EINVAL; }
+    if (result == 0 && creator != NULL && (info.mode & (creator->uid == info.uid ? 0100u : 0001u)) == 0) { result = FS_EACCES; }
+    struct fs_handles files = {0}; void *image = NULL;
+    if (result == 0) {
+        long fd = fs_open(&files, path, FS_READ);
+        if (fd < 0) { result = fd; }
+        else { image = kmalloc((size_t)info.size); result = image == NULL ? FS_ENOSPC : fs_read(&files, (uint64_t)fd, image, (size_t)info.size); }
+    }
+    fs_close_all(&files); fs_set_uid(0);
     uint64_t pid, tid;
-    bool loaded = result == (long)info.size && user_process_start(image, (size_t)info.size, path, mode, false, &pid, &tid);
+    bool loaded = image != NULL && result == (long)info.size && user_process_start(image, (size_t)info.size, path, mode, false, &pid, &tid);
     KASSERT(kfree(image));
-    if (!loaded) { return FS_EINVAL; }
+    if (!loaded) { return result < 0 ? result : FS_EINVAL; }
     struct user_process *process = user_find(pid); KASSERT(process != NULL);
     process->parent = parent; process->terminal = terminal;
-    struct user_process *creator = user_find(parent);
+    if (creator != NULL) { process->uid = creator->uid; process->capabilities = creator->capabilities & ~CAP_DISPLAY; process->cpu_budget = creator->cpu_budget; process->syscall_budget = creator->syscall_budget; }
     if (creator != NULL && creator->display) { process->stdout_parent = parent; }
     return (long)pid;
+}
+void user_cancel_children(uint64_t pid) {
+    for (size_t i = 0; i < PROCESS_CAPACITY - 1u; ++i) {
+        if (!processes[i].live || processes[i].parent != pid) { continue; }
+        struct task_control task;
+        if (task_get_info(processes[i].tid, &task) && task.state != TASK_ZOMBIE) { (void)task_cancel(processes[i].tid); }
+    }
+}
+bool user_budget_expired(void) {
+    if (!task_is_user()) { return false; }
+    struct user_process *process = user_find(task_pid());
+    return process != NULL && process->cpu_budget != 0 && process->timer_entries >= process->cpu_budget;
 }
 void user_bad_context(const struct interrupt_frame *frame) {
     struct user_process *process = user_find(task_pid());

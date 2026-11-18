@@ -7,7 +7,7 @@ static long path_copy(struct user_process *process, uint64_t address, char *path
     }
     return FS_ENAMETOOLONG;
 }
-long fs_syscall(struct user_process *process, uint64_t number, uint64_t a, uint64_t b, uint64_t c) {
+static long dispatch(struct user_process *process, uint64_t number, uint64_t a, uint64_t b, uint64_t c) {
     if (number == SYS_CLOSE) { return fs_close(&process->files, a); }
     if (number == SYS_SEEK) { return fs_seek(&process->files, a, b); }
     if (number == SYS_READ || number == SYS_WRITE) {
@@ -20,10 +20,12 @@ long fs_syscall(struct user_process *process, uint64_t number, uint64_t a, uint6
         if (!write && result > 0 && !copy_to_user(&process->space.vm, b, buffer, (size_t)result)) { return SYS_EFAULT; }
         return result;
     }
-    if (number < SYS_OPEN || number > SYS_LIST) { return SYS_ENOSYS; }
+    if (number < SYS_OPEN || (number > SYS_LIST && number != SYS_CHMOD && number != SYS_CHOWN)) { return SYS_ENOSYS; }
     char path[FS_PATH_MAX], other[FS_PATH_MAX];
     long result = path_copy(process, a, path);
     if (result < 0) { return result; }
+    if (number == SYS_CHMOD) { return b > UINT32_MAX ? FS_EINVAL : fs_chmod(path, (uint32_t)b); }
+    if (number == SYS_CHOWN) { return b > UINT32_MAX ? FS_EINVAL : fs_chown(path, (uint32_t)b); }
     if (number == SYS_OPEN) { return b > UINT32_MAX ? FS_EINVAL : fs_open(&process->files, path, (unsigned int)b); }
     if (number == SYS_MKDIR) { return fs_mkdir(path); }
     if (number == SYS_UNLINK) { return fs_unlink(path); }
@@ -43,4 +45,8 @@ long fs_syscall(struct user_process *process, uint64_t number, uint64_t a, uint6
         return result;
     }
     return SYS_ENOSYS;
+}
+
+long fs_syscall(struct user_process *process, uint64_t number, uint64_t a, uint64_t b, uint64_t c) {
+    fs_set_uid(process->uid); long result = dispatch(process,number,a,b,c); fs_set_uid(0); return result;
 }

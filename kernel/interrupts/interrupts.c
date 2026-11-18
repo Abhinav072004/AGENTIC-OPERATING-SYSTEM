@@ -9,6 +9,7 @@
 #include <stdatomic.h>
 #include "scheduler/task.h"
 #include "user/user.h"
+#include "security/policy.h"
 
 static struct pic8259 pic;
 static bool initialized;
@@ -88,6 +89,7 @@ struct interrupt_frame *interrupt_dispatch(struct interrupt_frame *frame) {
         if (!pic8259_eoi(&pic, irq, delivery)) { fatal_exception(frame); }
         if (irq == 0 && delivery == PIC_REAL) { ++timer_eois; }
         if (irq == 0 && delivery == PIC_REAL) { user_timer_entry(frame); }
+        if (irq == 0 && delivery == PIC_REAL && (frame->cs & 3u) == 3 && user_budget_expired()) { return task_finish_user(frame, USER_QUOTA_STATUS); }
         return irq == 0 && delivery == PIC_REAL ? scheduler_interrupt(frame, true) : frame;
     }
     if ((frame->cs & 3u) == 3) {

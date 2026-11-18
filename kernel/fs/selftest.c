@@ -9,12 +9,13 @@ extern unsigned char user_hello_start[], user_hello_end[], user_probe_start[], u
 void fs_self_test(void) {
     fs_init();
     KASSERT(fs_mkdir("/bin") == 0 && fs_mkdir("/tmp") == 0 && fs_mkdir("/home") == 0 && fs_mkdir("/etc") == 0);
+    KASSERT(fs_chown("/home", 1000) == 0 && fs_chmod("/home", 0700) == 0 && fs_chmod("/tmp", 01777) == 0 && fs_chmod("/bin", 0755) == 0 && fs_chmod("/etc", 0755) == 0);
     KASSERT(fs_seed("/etc/motd", "Welcome to AgenticOS\n", 20) == 0);
-    KASSERT(fs_seed("/bin/hello", user_hello_start, (size_t)(user_hello_end - user_hello_start)) == 0);
-    KASSERT(fs_seed("/bin/probe", user_probe_start, (size_t)(user_probe_end - user_probe_start)) == 0);
+    KASSERT(fs_seed_program("/bin/hello", user_hello_start, (size_t)(user_hello_end - user_hello_start)) == 0);
+    KASSERT(fs_seed_program("/bin/probe", user_probe_start, (size_t)(user_probe_end - user_probe_start)) == 0);
     size_t blocks = fs_used_blocks(); uint64_t frames = memory_frames()->free_frames;
     /* Load the native acceptance executable through the VFS itself. */
-    KASSERT(fs_seed("/bin/fstest", user_fstest_start, (size_t)(user_fstest_end - user_fstest_start)) == 0);
+    KASSERT(fs_seed_program("/bin/fstest", user_fstest_start, (size_t)(user_fstest_end - user_fstest_start)) == 0);
     struct fs_handles files = {0};
     long fd = fs_open(&files, "/bin/fstest", FS_READ); KASSERT(fd >= 3);
     size_t length = (size_t)(user_fstest_end - user_fstest_start);

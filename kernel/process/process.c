@@ -27,7 +27,7 @@ struct process_control *process_find(struct process_table *table, uint64_t pid) 
     return NULL;
 }
 bool process_create(struct process_table *table, const char *name, uint64_t *pid) {
-    if (table == NULL || !table->ready || pid == NULL || table->next_pid == UINT64_MAX) { return false; }
+    if (table == NULL || !table->ready || pid == NULL || table->next_pid > INT64_MAX) { return false; }
     for (size_t i = 1; i < PROCESS_CAPACITY; ++i) {
         if (table->entries[i].live) { continue; }
         table->entries[i] = (struct process_control){.pid = table->next_pid++,

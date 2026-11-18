@@ -15,6 +15,7 @@
 #include "drivers/drivers.h"
 #include "net/stack.h"
 #include "gui/display.h"
+#include "security/policy.h"
 #if CONFIG_SELFTEST == 21
 _Noreturn void user_boot_failure_probe(void);
 #endif
@@ -177,5 +178,6 @@ _Noreturn void kernel_main(void) {
     shell_boot();
     network_self_test();
     desktop_boot(response->framebuffers[0]);
+    security_self_test();
     cpu_halt();
 }

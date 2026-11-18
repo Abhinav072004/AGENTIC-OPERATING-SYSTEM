@@ -29,18 +29,20 @@ def run(firmware):
                 deadline = time.monotonic() + 40
                 stage = 0
                 commands = [
-                    ('uname', 'AgenticOS 0.11.0 x86_64'),
+                    ('uname', 'AgenticOS 0.12.0 x86_64'),
                     ('mkdir demo', '/home > '), ('cd demo', '/home/demo > '),
                     ('write "quoted file" "hello from serial"', '/home/demo > '),
                     ('cat "quoted file"', '\nhello from serial\n'),
                     ('mv "quoted file" renamed', '/home/demo > '),
-                    ('stat renamed', 'file bytes=17'), ('ps', 'PID TID STATE TICKS NAME'),
+                    ('stat renamed', 'file bytes=17'), ('chmod 000 renamed', '/home/demo > '),
+                    ('cat renamed', 'error=-13'), ('chmod 600 renamed', '/home/demo > '),
+                    ('cat renamed', '\nhello from serial\n'), ('id', 'uid=1000'), ('ps', 'PID TID STATE TICKS NAME'),
                     ('run /bin/hello', 'exit=0'),
                     ('echo "unfinished', 'error: unterminated quote'),
                     ('cat missing', 'error=-2'),
                     ('x' * 260, 'error: line too long'),
                     ('rm renamed', '/home/demo > '), ('cd ..', '/home > '), ('rm demo', '/home > '),
-                    ('exit', 'AGENTICOS: PHASE11 PASS')]
+                    ('exit', 'AGENTICOS: PHASE12 PASS')]
                 sent_at = 0
                 text = ''
                 while time.monotonic() < deadline:

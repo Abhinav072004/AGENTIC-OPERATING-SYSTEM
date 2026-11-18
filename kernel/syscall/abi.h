@@ -1,7 +1,7 @@
 #ifndef AGENTICOS_SYSCALL_ABI_H
 #define AGENTICOS_SYSCALL_ABI_H
 #include <stdint.h>
-#define AGENTICOS_USER_ABI UINT64_C(1)
+#define AGENTICOS_USER_ABI UINT64_C(2)
 #define SYS_WRITE UINT64_C(1)
 #define SYS_READ UINT64_C(2)
 #define SYS_EXIT UINT64_C(3)
@@ -37,6 +37,10 @@
 #define SYS_GUI_INFO UINT64_C(33)
 #define SYS_GUI_CAPTURE UINT64_C(34)
 #define SYS_GUI_PRESENT UINT64_C(35)
+#define SYS_CHMOD UINT64_C(36)
+#define SYS_CHOWN UINT64_C(37)
+#define SYS_SELF UINT64_C(38)
+struct self_info { uint64_t pid, capabilities, cpu_budget, syscall_budget; uint32_t uid, reserved; };
 #define SYS_COUNT 64u
 #define SYS_IO_MAX 128u
 #define SYS_E2BIG (-7L)

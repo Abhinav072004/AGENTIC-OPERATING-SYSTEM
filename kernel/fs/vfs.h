@@ -14,6 +14,8 @@
 #define FS_CREATE 4u
 #define FS_TRUNCATE 8u
 #define FS_APPEND 16u
+#define FS_EACCES (-13L)
+#define FS_EPERM (-1L)
 #define FS_ENOENT (-2L)
 #define FS_EIO (-5L)
 #define FS_EBADF (-9L)
@@ -27,9 +29,13 @@
 #define FS_ENOTEMPTY (-39L)
 struct fs_fd { uint64_t offset; uint16_t node; uint8_t flags; bool live; };
 struct fs_handles { struct fs_fd fd[FS_FD_MAX]; };
-struct fs_info { uint64_t size; uint32_t directory; uint32_t mode; };
+struct fs_info { uint64_t size; uint32_t directory; uint32_t mode, uid, reserved; };
 struct fs_entry { char name[32]; struct fs_info info; };
 void fs_init(void);
+void fs_set_uid(uint32_t uid);
+long fs_chmod(const char *path, uint32_t mode);
+long fs_chown(const char *path, uint32_t uid);
+long fs_seed_program(const char *path, const void *bytes, size_t length);
 long fs_mkdir(const char *path);
 long fs_open(struct fs_handles *handles, const char *path, unsigned int flags);
 long fs_close(struct fs_handles *handles, uint64_t fd);
