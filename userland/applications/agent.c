@@ -11,6 +11,7 @@ int user_main(uint64_t pid, uint64_t id) {
     struct agent_plan forged={.abi=AGENT_PLAN_ABI,.count=1,.actions={{.tool=AGENT_WRITE,.path="/etc/escape",.text="forged"}}};
     if(user_call(SYS_AGENT_PROPOSE,id,(uintptr_t)&forged,0)>=0) { return 4; }
     result=request.backend==AGENT_BACKEND_OFFLINE ? agent_infer_offline(request.intent,&plan) : user_call(SYS_AGENT_INFER,id,(uintptr_t)&plan,0); if(result<0) { return (int)result; }
+    result=agent_validate_plan(&plan); if(result<0) { return (int)result; }
     result=user_call(SYS_AGENT_PROPOSE,id,(uintptr_t)&plan,0); if(result<0) { return (int)result; }
     result=user_call(SYS_AGENT_WAIT,id,0,0); if(result<0) { return (int)result; }
     do { result=user_call(SYS_AGENT_STEP,id,0,0); } while(result>0);

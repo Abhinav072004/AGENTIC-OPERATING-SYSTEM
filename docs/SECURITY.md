@@ -61,3 +61,24 @@ persistent permission database. The kernel/compositor/broker implementation is
 trusted code. Built-in desktop windows share one user process. Inference or
 agent output must pass an independent action broker; model text alone must never
 change these permissions or execute privileged actions.
+
+## Agent boundary
+
+CAP_AGENT_CONTROL permits a session to control its own jobs. Each native worker
+has zero capabilities, a kernel-owned PID/job binding, bounded CPU/syscalls and
+a deadline. It cannot approve a plan or directly access files/network/devices.
+The broker copies/validates immutable plans, requires owner approval plus extra
+deletion consent, rechecks current authority per action and scopes VFS calls to
+the owner UID. Model inference cannot modify this authority. Optional network
+inference is an explicitly selected job-bound proxy to a trusted local host
+bridge; provider keys stay on the host.
+
+Native acceptance covers forged proposals, role/owner checks, unapproved effects,
+permission revocation, quota-preserving atomic writes, pending/partial cancel,
+timeout, orphan cleanup, malformed model output and socket reclamation. The
+audit ring is owner-filtered RAM metadata, not tamper-proof persistent evidence.
+Workspace control is coarse: approving a write permits replacement of that
+canonical path. The controller's built-in windows share one process; worker
+isolation does not make those windows mutually isolated. See
+[AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md) and
+[AGENT_INFERENCE.md](AGENT_INFERENCE.md) for concrete limits.

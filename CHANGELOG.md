@@ -1,5 +1,18 @@
 # Change log
 
+## 0.19.0 — 2026-11-18 (Agent milestone 5)
+
+- Integrate native shell agent commands and a desktop Ask Agent panel.
+- Show complete immutable action fields, require every action to be viewed, and
+  require explicit deletion consent before approval; display results and audit.
+- Support pending/partial cancellation, job status/release and optional backend
+  selection with visible model/network errors.
+- Render all 95 printable ASCII glyphs with distinct case/punctuation, preserving
+  exact path/text review; reject negated fallback intents.
+- Keep compact native images within existing file quotas using section garbage
+  collection, size optimization and a build-time image size check.
+- Extend native, PS/2/serial, model connector and packaged release acceptance.
+
 ## 0.18.0 — 2026-11-18 (Agent milestone 4)
 
 - Add reproducible integer intent inference from a project-owned synthetic corpus,

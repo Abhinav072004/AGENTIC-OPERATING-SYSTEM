@@ -7,7 +7,7 @@ import subprocess
 import tempfile
 import time
 from boot_test import QMP,validate_screen
-from desktop_test import Input,capture
+from desktop_test import Input,capture,input_progress
 from qemu import REPO,command
 
 
@@ -25,22 +25,26 @@ def run(firmware):
         with (output/'qemu.log').open('wb') as log:
             process=subprocess.Popen(cmd,stdout=log,stderr=subprocess.STDOUT)
             try:
-                def wait_for(marker):
+                def wait_for(marker,after=0):
                     deadline=time.monotonic()+40
                     while time.monotonic()<deadline:
                         text=serial.read_text(errors='replace') if serial.exists() else ''
                         assert process.poll() is None and '[PANIC]' not in text and '[ERROR]' not in text,text[-4000:]
-                        if marker in text: return text
+                        if marker in text[after:]: return text
                         time.sleep(0.025)
                     raise TimeoutError(text[-4000:])
                 text=wait_for('GUI READY'); assert 'AGENTICOS: READY' in text
                 for phase in range(1,15): assert text.count(f'AGENTICOS: PHASE{phase} PASS')==1
-                qmp=QMP(qmp_path); capture(qmp,output,'release-desktop'); Input(qmp).key('esc'); wait_for('AGENTICOS: SESSION EXIT')
+                for milestone in range(1,6): assert text.count(f'AGENTICOS: AGENT{milestone} PASS')==1
+                qmp=QMP(qmp_path); controls=Input(qmp,input_progress(serial)); capture(qmp,output,'release-desktop')
+                controls.click(190,20); before=len(serial.read_text()); controls.type('how much free memory\n'); wait_for('AGENT GUI review',before)
+                before=len(serial.read_text()); controls.click(160,481); wait_for('AGENT GUI done',before); capture(qmp,output,'release-agent')
+                controls.key('esc'); wait_for('AGENTICOS: SESSION EXIT')
                 registers=qmp.execute('human-monitor-command',{'command-line':'info registers'}); assert 'HLT=1' in registers and 'CPL=0' in registers
                 (output/'registers.txt').write_text(registers)
                 qmp.execute('screendump',{'filename':str(output/'screen.ppm')}); validate_screen(output/'screen.ppm',output/'screen.png')
                 qmp.execute('quit'); assert process.wait(timeout=5)==0
-                print(f'PASS: packaged {manifest["version"]} {firmware.upper()} ISO: all fourteen stages, live desktop, clean session exit and kernel halt')
+                print(f'PASS: packaged {manifest["version"]} {firmware.upper()} ISO: fourteen core/five agent stages, live reviewed Agent workflow, clean session exit and kernel halt')
             finally:
                 if qmp is not None: qmp.close()
                 if process.poll() is None: process.terminate(); process.wait(timeout=5)

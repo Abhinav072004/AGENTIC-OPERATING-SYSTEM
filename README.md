@@ -5,9 +5,9 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Agent milestone 4 — offline inference and optional model connector.**
+**Current milestone: Agent milestone 5 — native agent workflows complete.**
 The core OS has isolated native ELF processes, a RAM filesystem, tested device
-and network stacks, a serial shell and a graphical desktop with six applications.
+and network stacks, a serial shell and a graphical desktop with seven applications.
 Capabilities, file permissions, bounded resources and fault containment protect
 the documented single-CPU target. Files/settings reset on reboot; native ABI is 2.
 
@@ -15,9 +15,13 @@ Start with the [user guide](docs/USER_GUIDE.md) and [release procedure](docs/REL
 The default test ISO prints `AGENTICOS: READY` and halts; desktop/shell builds
 open an interactive session after acceptance checks. The owner has authorized
 continuing through all agent milestones after the verified core release.
-[Typed intent](docs/AGENT_INTENTS.md), broker execution, isolated workers and
-[offline inference/model connector](docs/AGENT_INFERENCE.md) are verified.
-Native review integration is the final planned agent milestone.
+All 14 core phases and five planned agent milestones are implemented.
+[Native agent workflows](docs/AGENT_WORKFLOWS.md) provide offline planning,
+review, approval, cancellation and audit in the shell and desktop. The optional
+[model connector](docs/AGENT_INFERENCE.md) is verified against fixtures; a live
+provider requires user configuration.
+
+![Native AgenticOS agent workflow](docs/reports/agent-5-desktop.png)
 
 ## Build and test
 
@@ -42,6 +46,8 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-security      # native permissions, quotas and orphan cleanup
 ./scripts/env.sh make test-applications  # editor, calculator, monitor and settings
 ./scripts/env.sh make test-agent-network # native model connector and failure cases
+./scripts/env.sh make test-agent-ui      # real graphical agent review and VFS workflows
+./scripts/env.sh make test-agent-shell   # real serial agent commands and consent
 ./scripts/env.sh make test-regression    # full regression suite
 ./scripts/env.sh make release test-release # two clean builds and packaged ISO boots
 ./scripts/env.sh make desktop            # local GTK desktop; see docs for VNC
@@ -88,13 +94,15 @@ kernel/
   net/                   Ethernet, ARP, IPv4, ICMP, UDP and bounded TCP sockets
   gui/                   Clipped rendering, supervisor back buffer and display ABI
   security/              Capabilities and native containment/resource checks
+  agent/                 Typed contracts, permission broker, runtime and connector
 userland/
   runtime/               Native entry, linker, syscall/command/app/window libraries
   applications/          Native shell/desktop and acceptance programs
-  agents/                Future isolated agent services
+  agents/                Reserved for additional workers; current worker is applications/agent.c
 libraries/               Reserved for shared kernel/user libraries
 scripts/                 Setup, dependency fetching, tool activation, GDB commands
-tools/                   QEMU, configuration and repeatable release tooling
+ai/                      Project-owned intent training/held-out data
+tools/                   QEMU, model bridge, training and repeatable release tooling
 tests/                   Sanitized host, ELF, guest, protection and debugger checks
   guest/                 Deliberate fault probes; excluded from normal ISO
 docs/                    Setup, internal explanations and milestone reports
@@ -116,7 +124,9 @@ Reserved directories contain no claimed implementations.
 - [Interrupt and exception internals](docs/INTERRUPTS.md)
 - [Tasks and scheduling internals](docs/SCHEDULING.md)
 - [User mode and syscall ABI](docs/USER_MODE.md)
-- [Current release evidence](docs/reports/phase-14.md)
+- [Current agent release evidence](docs/reports/agent-5.md)
+- [Native agent workflows](docs/AGENT_WORKFLOWS.md)
+- [Historical core release evidence](docs/reports/phase-14.md)
 - [Native applications](docs/APPLICATIONS.md)
 - [Security boundary and limits](docs/SECURITY.md)
 - [Historical Week 6 report](docs/reports/phase-6.md)

@@ -52,3 +52,11 @@ recursive orphan cleanup; see [SECURITY.md](SECURITY.md).
 
 `./scripts/env.sh make test-shell` runs an actual bidirectional serial session
 on BIOS and UEFI. Evidence is under `build/tests/shell-{bios,uefi}`.
+
+## Agent commands
+
+`agent plan "INTENT"` proposes and prints a plan without executing it. Use
+`agent review ID`, `agent approve ID [delete]`, `agent cancel ID`,
+`agent status ID`, `agent jobs`, `agent audit ID` and `agent release ID`.
+`agent model "INTENT"` selects the optional host model bridge. See
+[AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md) for examples, ownership and limits.

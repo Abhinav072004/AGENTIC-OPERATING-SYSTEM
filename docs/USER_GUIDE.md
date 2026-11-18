@@ -34,7 +34,8 @@ after acceptance checks. Escape exits, subject to Editor's unsaved-draft guard.
 
 Open Applications in the taskbar. Focus a window by clicking it or its taskbar
 button; drag its title bar and close with X. The launcher opens Terminal, Files,
-Calculator, Editor, Monitor and Settings. See [APPLICATIONS.md](APPLICATIONS.md)
+Calculator, Editor, Monitor, Settings and Agent. Click Ask Agent in the top bar
+for intent-based workflows; see [AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md). See [APPLICATIONS.md](APPLICATIONS.md)
 for exact controls and limits. Terminal uses the same commands as the serial
 shell; see [SHELL.md](SHELL.md).
 

@@ -190,6 +190,7 @@ _Noreturn void kernel_main(void) {
     agent_broker_boot();
     agent_runtime_boot();
     agent_inference_boot();
+    agent_integration_boot(response->framebuffers[0]);
     serial_write("AGENTICOS: READY\n");
 #if CONFIG_SELFTEST == 23
     shell_session();

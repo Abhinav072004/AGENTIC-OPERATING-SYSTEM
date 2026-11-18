@@ -33,6 +33,6 @@ file handle or runnable child. This single-CPU implementation serializes broker
 mutations with interrupts disabled and does not retain user pointers.
 
 The worker now supports the offline and optional model backends described in
-[AGENT_INFERENCE.md](AGENT_INFERENCE.md). Native shell/desktop review controls
-follow in the integration milestone. Native startup sign-extends the low 32 bits
+[AGENT_INFERENCE.md](AGENT_INFERENCE.md). Native shell/desktop review controls are described in
+[AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md). Native startup sign-extends the low 32 bits
 of a program return value into SYS_EXIT, preserving signed error statuses.

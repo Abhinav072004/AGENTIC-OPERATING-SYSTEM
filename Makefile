@@ -69,10 +69,11 @@ $(BUILD)/%.o: %.asm Makefile
 	@mkdir -p $(@D)
 	$(NASM) --reproducible -f elf64 -g -F dwarf $< -o $@
 
-USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffile-prefix-map=$(CURDIR)=. -fdebug-compilation-dir=. -ffile-prefix-map=$(abspath $(BUILD))=build -ffreestanding -fno-builtin \
+USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffunction-sections -fdata-sections -ffile-prefix-map=$(CURDIR)=. -fdebug-compilation-dir=. -ffile-prefix-map=$(abspath $(BUILD))=build -ffreestanding -fno-builtin \
     -fno-stack-protector -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables \
     -mno-red-zone -mgeneral-regs-only -Wall -Wextra -Werror -Wpedantic -Wconversion \
     -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime -MMD -MP
+$(BUILD)/user/desktop.o $(BUILD)/user/runtime-agent_panel.o: USER_CFLAGS += -Oz
 USER_PROGRAMS := hello probe fstest shell nettest desktop security planner agent agenttest agentinfer
 .SECONDARY: $(addprefix $(BUILD)/user/,$(addsuffix .o,$(USER_PROGRAMS))) $(addprefix $(BUILD)/user/,$(addsuffix .elf,$(USER_PROGRAMS)))
 $(BUILD)/user/%.o: userland/applications/%.c userland/runtime/syscall.h kernel/syscall/abi.h kernel/user/elf.h Makefile
@@ -95,12 +96,13 @@ $(BUILD)/user/runtime-memory.o: kernel/runtime/memory.c kernel/runtime/memory.h 
 $(BUILD)/user/runtime-%.o: userland/runtime/%.c Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
-$(BUILD)/user/shell.elf: $(BUILD)/user/runtime-commands.o
-$(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o $(BUILD)/user/runtime-apps.o
+$(BUILD)/user/shell.elf: $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-agent_client.o
+$(BUILD)/user/desktop.elf: $(BUILD)/user/runtime-agent_client.o $(BUILD)/user/runtime-agent_panel.o $(BUILD)/user/runtime-commands.o $(BUILD)/user/runtime-window.o $(BUILD)/user/runtime-apps.o
 $(BUILD)/user/%-image.elf: $(BUILD)/user/%.elf
 	objcopy --strip-all $< $@
+	$(PYTHON) tools/check_user_size.py $@
 $(BUILD)/user/%.elf: $(BUILD)/user/%.o $(BUILD)/user/start.o $(BUILD)/user/text.o $(BUILD)/user/runtime-memory.o userland/runtime/linker.ld
-	$(LD) -nostdlib -static -z max-page-size=0x1000 -z noexecstack --build-id=none \
+	$(LD) -nostdlib -static --gc-sections -z max-page-size=0x1000 -z noexecstack --build-id=none \
 	    -T userland/runtime/linker.ld $(filter %.o,$^) -o $@
 $(BUILD)/kernel/user/images.o: kernel/user/images.asm $(addprefix $(BUILD)/user/,$(addsuffix -image.elf,$(USER_PROGRAMS))) Makefile
 	@mkdir -p $(@D)
@@ -262,8 +264,14 @@ release:
 test-release:
 	$(PYTHON) tests/release_test.py
 test-regression:
-	$(MAKE) test test-debug test-foundation test-memory test-interrupts test-scheduler test-user test-drivers test-shell test-network test-desktop test-security test-applications
+	$(MAKE) test test-debug test-foundation test-memory test-interrupts test-scheduler test-user test-drivers test-shell test-network test-desktop test-security test-applications test-agent-network test-agent-ui test-agent-shell
 
 .PHONY: test-agent-network
 test-agent-network:
 	$(PYTHON) tests/agent_network_test.py
+
+.PHONY: test-agent-ui test-agent-shell
+test-agent-ui:
+	$(PYTHON) tests/agent_ui_test.py
+test-agent-shell:
+	$(PYTHON) tests/agent_shell_test.py

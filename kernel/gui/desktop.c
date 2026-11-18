@@ -30,3 +30,5 @@ void desktop_boot(const struct limine_framebuffer *framebuffer) {
 }
 void applications_boot(const struct limine_framebuffer *framebuffer) { run_desktop(framebuffer,2); serial_write("AGENTICOS: APPLICATION USER PASS\n"); serial_write("AGENTICOS: PHASE13 PASS\n"); }
 void desktop_session(const struct limine_framebuffer *framebuffer) { run_desktop(framebuffer,0); serial_write("AGENTICOS: SESSION EXIT\n"); }
+
+void agent_integration_boot(const struct limine_framebuffer *framebuffer) { run_desktop(framebuffer,3); serial_write("AGENTICOS: AGENT5 PASS\n"); }

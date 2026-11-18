@@ -343,3 +343,26 @@ recovery, comprehensive security hardening, SMP/concurrent allocation, driver po
 physical boot or Secure Boot. Actual machine-check delivery, APIC/IOAPIC,
 arbitrary NMI nesting and FPU/SIMD context support are not exercised or claimed.
 These require future milestones.
+
+
+## Agent acceptance
+
+`make test` includes sanitized plan/broker/inference suites, exact trained-weight
+regeneration and the host HTTP model bridge fixture. Every normal boot runs
+budgeted native agent acceptance and requires AGENT1 through AGENT5 PASS before
+READY. Worker/controller processes use real distinct roots and CPL3 syscalls.
+
+`make test-agent-network` tests actual e1000/TCP, a host bridge and an HTTP provider
+fixture, including unsafe output, protocol/size/truncation failures, timeouts,
+in-flight cancellation and full socket reclamation. It does not contact a live
+model provider. `make test-agent-ui` drives PS/2 input, inspects the actual private
+user state, verifies complete 127-byte text rendering and exact VFS readback,
+review/deletion guards, audit, cancellation and failure display. The serial
+counterpart is `make test-agent-shell`. Both run BIOS and UEFI. The aggregate
+`make test-regression` includes all of these checks.
+
+`make release test-release` also boots the exact packaged desktop ISO, requires
+14 core and five agent stages, runs an explicitly reviewed Agent request and
+verifies exit/resource reclamation. Evidence is under build/tests/{agent-model,
+agent-ui,agent-shell,release}-{bios,uefi}. The current report is
+[agent-5.md](docs/reports/agent-5.md).

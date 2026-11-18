@@ -22,7 +22,8 @@ source-tree digest, Git commit, dirty state, source epoch and artifact sizes/has
 A release intended for distribution should have `dirty: false`.
 
 Reproducibility uses normalized compiler/debug paths, NASM reproducible output,
-stripped kernel/native runtime images, stable GPT identity and fixed ISO metadata dates.
+stripped kernel/native runtime images with function/data section garbage
+collection (size-optimized desktop), stable GPT identity and fixed ISO metadata dates.
 `SOURCE_DATE_EPOCH` defaults to 2026-11-18 00:00:00 UTC and can be set deliberately
 for a different release. It must be within 1980–2107. This claim is tested with
 the pinned Debian toolchain; it does not promise identical output from arbitrary
@@ -34,11 +35,14 @@ verified across relocated source roots.
 `make test-regression` runs the sanitized host suites, normal BIOS/UEFI boots,
 GDB entry, diagnostics/filter/fatal paths, memory sizes/protection/OOM,
 interrupts/NMI, scheduler stress/guards/watchdog, native user isolation/UART,
-real devices, serial shell, network loss/failures, desktop/apps and permissions.
+real devices, serial shell, network loss/failures, desktop/apps and permissions,
+plus agent contracts/broker/inference, real model-connector failures and native
+PS/2/serial review/approval/cancellation workflows.
 Every runner uses fresh logs and a private QEMU/QMP instance and tears it down.
 `make test-release` then boots the exact packaged interactive ISO on BIOS and
-UEFI, requires all fourteen core markers plus READY, captures its live desktop,
-exits and verifies the kernel halt. Evidence is `build/tests/release-*`.
+UEFI, requires all fourteen core and five agent markers plus READY, captures its live
+desktop, runs an explicitly reviewed Agent workflow, exits and verifies the
+kernel halt. Evidence is `build/tests/release-*`.
 
 Before publishing a code milestone, update its report and roadmap, run relevant
 checks, commit as the project owner and push the fast-forward commit to main.

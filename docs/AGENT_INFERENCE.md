@@ -41,7 +41,7 @@ the ISO or sent to the guest. Provider redirects are rejected. The bridge binds
 127.0.0.1:8088, limits concurrent handlers to four, bounds input/provider output
 and strictly validates JSON keys, action counts, paths, types and string sizes.
 Configure another port with `--port PORT` and `make AGENT_BRIDGE_PORT=PORT ...`.
-The shell/desktop integration milestone adds the backend selection controls.
+Select Model bridge in Ask Agent, or use `agent model "INTENT"` in the shell.
 
 The guest connects only to QEMU's host gateway 10.0.2.2 on that configured port,
 using its native e1000/TCP implementation. It sends `AGI1`, a little-endian

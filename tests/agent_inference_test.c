@@ -12,7 +12,7 @@ int main(void) {
     assert(agent_infer_offline("I would like a directory at /home/notes",&plan)==0 && plan.actions[0].tool==AGENT_MKDIR);
     assert(agent_infer_offline("show me the files in /home",&plan)==0 && plan.actions[0].tool==AGENT_LIST);
     assert(agent_infer_offline("how much free memory",&plan)==0 && plan.actions[0].tool==AGENT_SYSTEM);
-    const char *bad[]={"put text into /home/a", "make a folder", "please erase /etc/passwd", "please put 'hi' into /home/a then delete /home/b", "unknown gizmo /home/a", "put 'x' into /home/../etc/x"};
+    const char *bad[]={"put text into /home/a", "make a folder", "please erase /etc/passwd", "please put 'hi' into /home/a then delete /home/b", "unknown gizmo /home/a", "do not delete /home/a", "never erase /home/a", "put 'x' into /home/../etc/x"};
     for(size_t i=0;i<sizeof(bad)/sizeof(bad[0]);++i) { memset(&plan,0x5a,sizeof(plan)); assert(agent_infer_offline(bad[i],&plan)<0 && plan.count==0); }
     unsigned int random=5; char input[512]; for(unsigned int test=0;test<20000;++test) { size_t length=test%511; for(size_t i=0;i<length;++i) { random=random*1664525u+1013904223u; input[i]="ab home/;'_\"t\\ "[random%15]; } input[length]=0; long result=agent_infer_offline(input,&plan); assert(result==0 ? agent_validate_plan(&plan)==0 : plan.count==0); }
     puts("PASS: actual integer inference on 14 held-out labels, bounded argument extraction, uncertainty/scope/compound rejection and 20,000 sanitized requests"); return 0;

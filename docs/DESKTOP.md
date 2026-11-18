@@ -10,7 +10,8 @@ real PS/2 event injection and captured framebuffer output.
 
 The desktop is a native ring-3 ELF with a window model, z-order, taskbar,
 launcher, focus, title-bar dragging, close/reopen and a software mouse cursor.
-Open Applications to focus or launch Terminal, Files, Calculator, Editor, Monitor or Settings. Drag a title
+Open Applications to focus or launch Terminal, Files, Calculator, Editor, Monitor,
+Settings or Agent. Ask Agent is also available in the top bar. Drag a title
 bar; click X to close. The taskbar focuses open windows. Escape exits to the
 kernel's verified halt. A maximum of eight model windows is supported; the
 current launcher keeps one live window per application.
@@ -31,7 +32,8 @@ display process can use these services. Built-in windows share one user process;
 this phase does not claim separate process isolation for each window.
 
 The tested mode is 800x600 RGB32 (geometry supports 800x600 through 1920x1080).
-The original 5x7 font renders lowercase using capitals. Rendering is software,
+The original 5x7 font now renders all 95 printable ASCII characters with distinct
+case and punctuation, so agent paths and literal data remain reviewable. Rendering is software,
 into a supervisor software back buffer, presented as a complete frame after
 redraws on input; there is no GPU
 acceleration, scalable font, resize support or optimized damage compositor.
@@ -41,3 +43,8 @@ file preview, terminal file/child workflows, launcher and close/reopen on BIOS
 and UEFI. Evidence is `build/tests/desktop-{bios,uefi}`. The screenshots are
 unmodified captures of the guest framebuffer. Default acceptance boots execute bounded native desktop/app batches, restore
 the welcome screen and halt. Interactive sessions start after the checks.
+
+`make test-agent-ui` additionally exercises native Agent planning/review, full
+fields, approval/deletion guards, cancellation, result readback, audit and model
+errors through actual PS/2 input on both firmware paths. See
+[AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md).

@@ -18,7 +18,15 @@ int main(void) {
     display_set_buffer(canvas); draw = (struct gui_draw){.operation = GUI_RECT,.width = 1,.height = 1,.color = 0x55aa77}; assert(display_draw(&draw));
     assert(canvas[0] == 0x55aa77 && *(uint32_t *)(memory+16) == 0x123456); assert(display_present()); assert(*(uint32_t *)(memory+16) == 0x55aa77);
     for (size_t y = 0; y < 600; ++y) { for (size_t i = 800u*4u; i < pitch; ++i) { assert(memory[16+y*pitch+i] == 0xa5); } }
+    uint64_t masks[95]={0};
+    for(unsigned int code=32;code<=126;++code) {
+        memset(canvas,0,800u*7u*4u); draw=(struct gui_draw){.operation=GUI_TEXT,.color=0xffffff}; draw.text[0]=(char)code; assert(display_draw(&draw));
+        for(size_t y=0;y<7;++y) { for(size_t x=0;x<5;++x) { if(canvas[y*800u+x]!=0) { masks[code-32u]|=UINT64_C(1)<<(y*5u+x); } } }
+        assert(code==32 ? masks[0]==0 : masks[code-32u]!=0);
+    }
+    for(unsigned int code='a';code<='z';++code) { assert(masks[code-32u]!=masks[code-'a'+'A'-32u]); }
+    assert(masks['\\'-32u]!=masks['?'-32u] && masks['_' -32u]!=masks['-'-32u]);
     display_set_buffer(NULL); free(canvas);
     draw.operation = 99; assert(!display_draw(&draw)); draw.operation = GUI_RECT; draw.width = -1; assert(!display_draw(&draw)); free(memory);
-    puts("PASS: framebuffer clip boundaries, extreme signed coordinates, unterminated text bounds, pitch padding, back-buffer present and surrounding canaries"); return 0;
+    puts("PASS: framebuffer clip boundaries, extreme signed coordinates, unterminated text bounds, pitch padding, back-buffer present surrounding canaries and all 95 printable glyphs with distinct case/punctuation"); return 0;
 }

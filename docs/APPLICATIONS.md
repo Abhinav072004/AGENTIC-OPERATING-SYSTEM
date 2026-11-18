@@ -48,3 +48,11 @@ expression result, real monitor values, saved preference data and clean exit.
 Evidence and unmodified screenshots are under `build/tests/applications-*`.
 The default native app batch additionally fills the RAM quota, proves a failed
 save preserves the original file and reclaims every test block.
+
+## Agent
+
+Ask Agent in the top bar opens the native planning/review panel. It shares the
+desktop controller process while each worker runs as an isolated, zero-capability
+ELF. Prev/Next shows all fields before approval; deletion needs an explicit
+acknowledgment. Cancel, status, audit and optional backend controls are described
+in [AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md).

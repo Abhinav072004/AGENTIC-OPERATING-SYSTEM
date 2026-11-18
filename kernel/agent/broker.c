@@ -81,7 +81,7 @@ long agent_broker_begin(struct agent_broker *broker, const struct agent_actor *a
     if (!room(broker) || broker->next_id > INT64_MAX) { return -75; }
     for (size_t i=0;i<AGENT_JOB_MAX;++i) { struct agent_job *job=&broker->jobs[i]; if (job->live) { continue; }
         memset(job,0,sizeof(*job)); job->live=true; job->info=(struct agent_job_info){.id=broker->next_id++,.owner=actor->pid,.uid=actor->uid};
-        record_event(broker,job,8,0,NULL); return (long)job->info.id;
+        record_event(broker,job,AUDIT_STARTED,0,NULL); return (long)job->info.id;
     } return -24;
 }
 long agent_broker_propose(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, const struct agent_plan *plan) {

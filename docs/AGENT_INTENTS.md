@@ -1,8 +1,9 @@
 # Typed agent intent and native tools
 
-The first agent milestone defines plans as data. It does not execute them.
-A separate action broker and user-space runtime follow in the next milestones.
-The OS remains fully usable without inference access.
+Plans are bounded data: parsing alone never executes them. The separate kernel
+broker and isolated worker enforce validation, review and owner approval before
+execution. See [AGENT_RUNTIME.md](AGENT_RUNTIME.md) and
+[AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md). Offline operation needs no service.
 
 A plan contains an ABI number and one through eight typed actions. Each action
 contains a tool ID, zero reserved flags and fixed 128-byte path/target/text
@@ -12,8 +13,8 @@ is represented by this interface.
 
 Tools are mkdir, write, read, list, move, delete and system. Read/list require
 filesystem-read authority; mutating tools require filesystem-write authority;
-system requires inspection authority. This metadata describes what a future
-broker must check; parsing does not grant those capabilities.
+system requires inspection authority. The broker enforces these requirements
+before approval and every tool step; parsing grants no capabilities.
 
 The workspace is `/home`. Paths normalize repeated separators and `.`; parent
 traversal, another namespace and mutation of the workspace root are rejected.

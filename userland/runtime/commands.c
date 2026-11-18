@@ -2,6 +2,7 @@
 #include "text.h"
 #include "fs/vfs.h"
 #include "commands.h"
+#include "agent_client.h"
 static char cwd[128] = "/home";
 static bool leaving;
 static void (*sink)(const char *text);
@@ -11,7 +12,8 @@ static long path_call(uint64_t call, const char *path, uint64_t b, uint64_t c) {
 static long wait_child(uint64_t pid) { int status; long result; do { result = user_call(SYS_WAIT, pid, (uintptr_t)&status, 0); if (result == SYS_EAGAIN) { (void)user_call(SYS_SLEEP, 1, 0, 0); } } while (result == SYS_EAGAIN); if (result < 0) { return result; } char captured[SYS_IO_MAX+1]; long bytes; bool captured_any = false, newline = false; while ((bytes = user_call(SYS_GUI_CAPTURE, (uintptr_t)captured, SYS_IO_MAX, 0)) > 0) { captured[bytes] = 0; captured_any = true; newline = captured[bytes-1] == '\n'; output(captured); } if (captured_any && !newline) { output("\n"); } output("exit="); number(status); output("\n"); return status; }
 static long execute(int count, char **args) {
     const char *command = args[0];
-    if (text_equal(command, "help")) { output("help echo uname uptime mem ps pid id pwd cd ls mkdir touch cat write append rm mv stat chmod run wait kill exit\n"); return 0; }
+    if (text_equal(command, "agent")) { return agent_command(count,args,output); }
+    if (text_equal(command, "help")) { output("help echo uname uptime mem ps pid id pwd cd ls mkdir touch cat write append rm mv stat chmod run wait kill agent exit\n"); return 0; }
     if (text_equal(command, "exit")) { leaving = true; return 0; }
     if (text_equal(command, "echo")) { for (int i = 1; i < count; ++i) { if (i > 1) { output(" "); } output(args[i]); } output("\n"); return 0; }
     if (text_equal(command, "pwd")) { output(cwd); output("\n"); return 0; }

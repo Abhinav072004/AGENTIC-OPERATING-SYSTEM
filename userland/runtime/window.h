@@ -9,6 +9,7 @@
 #define APP_EDITOR 4u
 #define APP_MONITOR 5u
 #define APP_SETTINGS 6u
+#define APP_AGENT 7u
 struct window { int32_t x,y,width,height; uint32_t app; bool live; };
 struct window_manager { struct window windows[WM_MAX]; unsigned int order[WM_MAX], count; int active, dragging, anchor_x, anchor_y, width, height; };
 void wm_init(struct window_manager *manager, int width, int height);

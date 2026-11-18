@@ -19,6 +19,7 @@
 #define AUDIT_CANCELLED 5u
 #define AUDIT_FAILED 6u
 #define AUDIT_RELEASED 7u
+#define AUDIT_STARTED 8u
 struct agent_actor { uint64_t pid, capabilities; uint32_t uid; };
 struct agent_job_info { uint64_t id, owner; uint32_t uid, state, completed, total; int32_t error; uint32_t bytes, destructive; char result[128]; };
 struct agent_audit { uint64_t sequence, job, owner; uint32_t uid, event, tool; int32_t status; char path[128], other[128]; };

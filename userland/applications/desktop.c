@@ -1,6 +1,7 @@
 #include "syscall.h"
 #include "text.h"
 #include "commands.h"
+#include "agent_panel.h"
 #include "apps.h"
 #include "window.h"
 #include "gui/abi.h"
@@ -25,7 +26,7 @@ static void pointer_trace(void) {
 }
 static void rect(int x, int y, int width, int height, uint32_t color) { struct gui_draw draw = {.operation = GUI_RECT, .x = x, .y = y, .width = width, .height = height, .color = color}; if (user_call(SYS_GUI_DRAW, (uintptr_t)&draw, 0, 0) != 0) { failed = true; } }
 static void label(int x, int y, const char *text, uint32_t color) { struct gui_draw draw = {.operation = GUI_TEXT, .x = x, .y = y, .color = color}; text_copy(draw.text, text, sizeof(draw.text)); if (user_call(SYS_GUI_DRAW, (uintptr_t)&draw, 0, 0) != 0) { failed = true; } }
-static const char *title(unsigned int app) { return app == APP_TERMINAL ? "Terminal" : app == APP_FILES ? "Files" : app == APP_CALCULATOR ? "Calculator" : app == APP_EDITOR ? "Editor" : app == APP_MONITOR ? "Monitor" : "Settings"; }
+static const char *title(unsigned int app) { return app == APP_TERMINAL ? "Terminal" : app == APP_FILES ? "Files" : app == APP_CALCULATOR ? "Calculator" : app == APP_EDITOR ? "Editor" : app == APP_MONITOR ? "Monitor" : app == APP_SETTINGS ? "Settings" : "Agent"; }
 static void emit(const char *text) {
     for (size_t i = 0; text[i] != 0; ++i) {
         if (text[i] == '\r') { continue; }
@@ -44,7 +45,8 @@ static void render_window(unsigned int slot) {
     const struct window *window = &wm.windows[slot]; int x = window->x, y = window->y, width = window->width;
     rect(x+4,y+5,width,window->height,0x080e19); rect(x,y,width,window->height,0x24354b); rect(x+1,y+25,width-2,window->height-26,0x172438);
     rect(x+1,y+1,width-2,23,wm.active == (int)slot ? (apps_slate_theme ? 0x327569 : 0x285da3) : 0x34465e); label(x+10,y+9,window->app == APP_EDITOR && editor.dirty ? "Editor *" : title(window->app),0xffffff); label(x+width-18,y+9,"X",0xffffff);
-    if (window->app == APP_TERMINAL) {
+    if (window->app == APP_AGENT) { if (!agent_panel_draw(x,y)) { failed = true; } }
+    else if (window->app == APP_TERMINAL) {
         rect(x+8,y+32,width-16,window->height-40,0x0b1422);
         size_t first = terminal_row > 14 ? terminal_row-14 : 0;
         for (size_t i = first; i <= terminal_row; ++i) { label(x+14,y+40+(int)(i-first)*12,terminal[i],0xc7dbef); }
@@ -83,13 +85,13 @@ static void render_window(unsigned int slot) {
     }
 }
 static void render(void) {
-    rect(0,0,wm.width,wm.height,apps_slate_theme ? 0x102521 : 0x101a2b); rect(0,0,wm.width,40,0x18283f); label(20,16,"AgenticOS",0xf2f7ff); label(wm.width-200,16,"Desktop / RAM files",0x8db5df);
+    rect(0,0,wm.width,wm.height,apps_slate_theme ? 0x102521 : 0x101a2b); rect(0,0,wm.width,40,0x18283f); label(20,16,"AgenticOS",0xf2f7ff); button(140,8,110,"Ask Agent",false); label(wm.width-200,16,"Desktop / RAM files",0x8db5df);
     label(24,64,"Your tools. Your operating system.",0x829fbd);
     for (unsigned int i = 0; i < wm.count; ++i) { render_window(wm.order[i]); }
     rect(0,wm.height-38,wm.width,38,0x1b2b41); button(10,wm.height-31,110,"Applications",menu);
     int task_width = wm.count == 0 ? 112 : (wm.width-140)/(int)wm.count; if (task_width > 112) { task_width = 112; }
     for (unsigned int i = 0; i < wm.count; ++i) { unsigned int slot = wm.order[i]; button(130+(int)i*task_width,wm.height-31,task_width-4,title(wm.windows[slot].app),wm.active == (int)slot); }
-    if (menu) { rect(10,wm.height-280,190,240,0x253b57); label(24,wm.height-264,"Launch an application",0x97bfe5); for (unsigned int app = APP_TERMINAL; app <= APP_SETTINGS; ++app) { button(20,wm.height-244+(int)(app-1)*34,170,title(app),false); } }
+    if (menu) { rect(10,wm.height-320,190,280,0x253b57); button(20,wm.height-306,170,"Ask Agent",false); label(24,wm.height-264,"Launch an application",0x97bfe5); for (unsigned int app = APP_TERMINAL; app <= APP_SETTINGS; ++app) { button(20,wm.height-244+(int)(app-1)*34,170,title(app),false); } }
 
     for (int row = 0; row < 14; ++row) { rect(mouse_x+1,mouse_y+row+1,row/2+2,1,0x000000); rect(mouse_x,mouse_y+row,row/2+1,1,0xffffff); }
     if (user_call(SYS_GUI_PRESENT,0,0,0) != 0) { failed = true; }
@@ -101,7 +103,8 @@ static void open_selected(void) { if (selected < 0 || selected >= (int)entry_cou
 static void key_event(uint32_t key, uint32_t modifiers) {
     if (key == 27) { if (editor.dirty) { text_copy(editor.status,"Unsaved changes: Save or Discard first",sizeof(editor.status)); launch(APP_EDITOR); } else { quitting = true; } return; } if (wm.active < 0) { return; }
     unsigned int app = wm.windows[wm.active].app;
-    if (app == APP_EDITOR) { bool was_dirty = editor.dirty; editor_key(key,modifiers); if (was_dirty && !editor.dirty) { refresh_files(); } }
+    if (app == APP_AGENT) { agent_panel_key(key,modifiers); }
+    else if (app == APP_EDITOR) { bool was_dirty = editor.dirty; editor_key(key,modifiers); if (was_dirty && !editor.dirty) { refresh_files(); } }
     else if (app == APP_CALCULATOR) { calc_key(key); }
     else if (app == APP_TERMINAL) {
         if (key == '\n') { emit("> "); emit(terminal_input); emit("\n"); (void)commands_run(terminal_input); input_length = 0; terminal_input[0] = 0; refresh_files(); trace("GUI terminal command"); if (commands_leaving()) { wm_close(&wm,(unsigned int)wm.active); commands_init(emit); } }
@@ -111,12 +114,14 @@ static void key_event(uint32_t key, uint32_t modifiers) {
 }
 static void click(void) {
     int x = mouse_x, y = mouse_y;
+    if (y >= 8 && y < 32 && x >= 140 && x < 250) { launch(APP_AGENT); return; }
     if (y >= wm.height-38) { if (x < 124) { menu = !menu; return; } int task_width = wm.count == 0 ? 112 : (wm.width-140)/(int)wm.count; if (task_width > 112) { task_width = 112; } if (x >= 130) { unsigned int position = (unsigned int)((x-130)/task_width); if (position < wm.count) { wm_focus(&wm,wm.order[position]); } } return; }
-    if (menu && x >= 10 && x < 200 && y >= wm.height-280) { int index = (y-(wm.height-244))/34; if (y >= wm.height-244 && index >= 0 && index < 6) { launch((unsigned int)index+1u); } return; }
+    if (menu && x >= 10 && x < 200 && y >= wm.height-320) { if (y >= wm.height-306 && y < wm.height-282) { launch(APP_AGENT); return; } int index = (y-(wm.height-244))/34; if (y >= wm.height-244 && index >= 0 && index < 6) { launch((unsigned int)index+1u); } return; }
 
     menu = false; int hit = wm_hit(&wm,x,y); if (hit < 0) { return; } wm_focus(&wm,(unsigned int)hit); trace("GUI focus"); struct window *window = &wm.windows[hit];
-    if (y < window->y+25) { if (x >= window->x+window->width-28) { if (window->app == APP_EDITOR && editor.dirty) { text_copy(editor.status,"Unsaved changes: Save or Discard first",sizeof(editor.status)); return; } wm_close(&wm,(unsigned int)hit); trace("GUI close"); } else { wm.dragging = hit; wm.anchor_x = x-window->x; wm.anchor_y = y-window->y; } return; }
-    if (window->app == APP_EDITOR) {
+    if (y < window->y+25) { if (x >= window->x+window->width-28) { if (window->app == APP_EDITOR && editor.dirty) { text_copy(editor.status,"Unsaved changes: Save or Discard first",sizeof(editor.status)); return; } if (window->app == APP_AGENT) { agent_panel_close(); } wm_close(&wm,(unsigned int)hit); trace("GUI close"); } else { wm.dragging = hit; wm.anchor_x = x-window->x; wm.anchor_y = y-window->y; } return; }
+    if (window->app == APP_AGENT) { agent_panel_click(x-window->x,y-window->y); }
+    else if (window->app == APP_EDITOR) {
         int local_x = x-window->x, local_y = y-window->y;
         if (local_y >= 34 && local_y < 58) { if (local_x >= 12 && local_x < 76) { editor_choose_path(); } else if (local_x >= 82 && local_x < 146) { if (editor_save() == 0) { refresh_files(); } } else if (local_x >= 152 && local_x < 216) { editor_new(false); } else if (local_x >= 222 && local_x < 302) { editor_new(true); } }
     } else if (window->app == APP_MONITOR) { monitor_refresh(); trace("APP monitor refreshed"); }
@@ -130,7 +135,7 @@ static void click(void) {
 }
 int user_main(uint64_t pid, uint64_t mode) {
     (void)pid; interactive = mode == 0; struct gui_info info; if (user_call(SYS_GUI_INFO,(uintptr_t)&info,0,0) != 0) { return 1; }
-    wm_init(&wm,(int)info.width,(int)info.height); mouse_x = wm.width/2; mouse_y = wm.height/2; commands_init(emit); apps_init(); emit("AgenticOS terminal\nType help to list commands.\n"); refresh_files(); launch(APP_TERMINAL); launch(APP_FILES); launch(APP_CALCULATOR); render();
+    wm_init(&wm,(int)info.width,(int)info.height); mouse_x = wm.width/2; mouse_y = wm.height/2; commands_init(emit); apps_init(); agent_panel_init(); emit("AgenticOS terminal\nType help to list commands.\n"); refresh_files(); launch(APP_TERMINAL); launch(APP_FILES); launch(APP_CALCULATOR); render();
     if (mode == 1) { if (commands_run("write /home/gui-check 'native desktop file'") != 0 || commands_run("cat /home/gui-check") != 0 || commands_run("rm /home/gui-check") != 0) { return 2; } text_copy(expression,"6*7",sizeof(expression)); calculate(); if (!text_equal(calculation,"42")) { return 3; } refresh_files(); render(); trace("native desktop checks passed"); return failed ? 4 : 0; }
     if (mode == 2) {
         launch(APP_EDITOR); editor_new(true); text_copy(editor.path,"/home/apps-check",sizeof(editor.path)); const char *sample = "Native editor saved this file."; for (size_t i = 0; sample[i] != 0; ++i) { editor_key((uint32_t)(unsigned char)sample[i],0); }
@@ -145,6 +150,7 @@ int user_main(uint64_t pid, uint64_t mode) {
         launch(APP_MONITOR); monitor_refresh(); if (monitor.count < 2 || monitor.system.free_frames == 0) { return 9; }
         launch(APP_SETTINGS); settings_select(true); if (!apps_slate_theme) { return 10; } settings_select(false); (void)user_call(SYS_UNLINK,(uintptr_t)"/home/.settings",0,0); render(); trace("native application checks passed"); return failed ? 11 : 0;
     }
+    if (mode == 3) { launch(APP_AGENT); int status = agent_panel_acceptance(); render(); trace("native agent integration checks passed"); return status; }
     trace("GUI READY");
     while (!quitting && !failed) {
         struct input_event event; bool changed = false;
@@ -152,6 +158,7 @@ int user_main(uint64_t pid, uint64_t mode) {
             if (event.kind == INPUT_KEY) { key_event(event.key,event.modifiers); trace("GUI key processed"); changed = true; }
             else if (event.kind == INPUT_MOUSE) { mouse_x += event.dx; mouse_y += event.dy; if (mouse_x < 0) { mouse_x = 0; } if (mouse_x >= wm.width) { mouse_x = wm.width-1; } if (mouse_y < 0) { mouse_y = 0; } if (mouse_y >= wm.height) { mouse_y = wm.height-1; } bool pressed = (event.buttons & 1u) != 0; if (pressed && (buttons & 1u) == 0) { click(); } int dragging = wm.dragging; wm_drag(&wm,mouse_x,mouse_y,pressed); if (dragging >= 0 && !pressed) { trace("GUI drag completed"); } buttons = event.buttons; pointer_trace(); changed = true; }
         }
+        if (agent_panel_tick()) { changed = true; }
         bool monitor_open = false; for (unsigned int i = 0; i < WM_MAX; ++i) { if (wm.windows[i].live && wm.windows[i].app == APP_MONITOR) { monitor_open = true; } }
         static uint64_t last_refresh; struct system_info clock; if (monitor_open && user_call(SYS_SYSTEM,(uintptr_t)&clock,0,0) == 0 && clock.ticks-last_refresh >= 100) { monitor_refresh(); last_refresh = clock.ticks; changed = true; }
         if (changed) { render(); } (void)user_call(SYS_SLEEP,1,0,0);

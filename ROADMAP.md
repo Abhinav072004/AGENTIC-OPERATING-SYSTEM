@@ -52,7 +52,10 @@ verified, continue the owner-authorized sequence for:
 4. **Verified (agent milestone 4):** trained integer offline classifier with
    uncertainty rejection and an optional host model connector; sanitized
    extraction and real BIOS/UEFI e1000/TCP/HTTP fixture failure handling.
-5. Native shell/desktop integration and reviewable multi-step workflows.
+5. **Verified (agent milestone 5):** native shell commands and Ask Agent panel,
+   full-field/every-action/deletion review, multi-step execution, results, cancel,
+   audit and visible inference failures; complete regression plus reproducible
+   packaged BIOS/UEFI agent workflows. All planned milestones are complete.
 
 No model integration or provider choice is required for first boot. Keep the
 OS functional without inference access. Physical installation always requires

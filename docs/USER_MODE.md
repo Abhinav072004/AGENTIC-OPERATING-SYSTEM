@@ -173,3 +173,31 @@ user process creation API, persistent service loop, filesystem, signal ABI,
 networking, desktop or AI runtime. APIC/SMP, demand paging, dynamic loading,
 FPU/SIMD contexts and production security require further milestones. Week 7's
 VFS and RAM filesystem await owner approval.
+
+
+## Agent syscalls (ABI 2 extension)
+
+The fixed syscall count remains 64; calls 39–50 extend ABI 2 without changing
+older records. All pointers are copied/validated in the current address space.
+
+| Calls | Purpose and authority |
+| --- | --- |
+| 39 START | Copy a zero-padded request and reserve an isolated worker; controller capability required |
+| 40 REVIEW | Copy the owner's immutable typed plan |
+| 41 APPROVE | Explicit plan consent, plus deletion consent if needed |
+| 42 CANCEL | Stop future actions on an owned job |
+| 43 STATUS | Copy job state/count/error/result; id=0 enumerates owner slots |
+| 44 AUDIT | Next owner-filtered event after a sequence cursor |
+| 45 CONTEXT | Copy context only to the exact job-bound worker PID |
+| 46 PROPOSE | Copy/validate a bound worker's plan, only in PLANNING |
+| 47 WAIT | Sleep until approval, cancellation or deadline |
+| 48 STEP | Bound worker requests one approved broker action using owner authority |
+| 49 INFER | Optional fixed-gateway model proxy; selected backend and owner network capability required |
+| 50 RELEASE | Reclaim a terminal owned job after worker cleanup |
+
+Controllers need CAP_AGENT_CONTROL (bit 128). Workers receive zero capabilities
+and a separate kernel-held role binding; they cannot approve themselves. No user
+pointer, UID or capability field in a proposal becomes authority. See
+[AGENT_RUNTIME.md](AGENT_RUNTIME.md) and [AGENT_WORKFLOWS.md](AGENT_WORKFLOWS.md).
+Native startup interprets the low 32 bits of user_main's return value as a signed
+exit status before SYS_EXIT, preserving negative errors.

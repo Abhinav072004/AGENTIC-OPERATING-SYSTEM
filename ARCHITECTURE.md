@@ -46,11 +46,34 @@ it never receives a framebuffer mapping. A supervisor back buffer is zeroed,
 presented and freed at session exit. Built-in views share their process; child
 programs launched by Terminal receive private roots and lose display permission.
 
-The core roadmap is followed by owner-authorized agent milestones: typed intent
-and tools, an independent action broker, a bounded user-space worker, a selected
-inference backend and reviewable shell/desktop workflows. Model text must remain
-data and cannot grant privileges or directly become kernel execution. The OS
-remains useful offline. Current agent status is recorded in ROADMAP.md.
+All five agent milestones are implemented. A controller starts a bounded worker
+with its own address space and zero direct tool capabilities. The worker uses
+the offline grammar/trained integer classifier or an explicitly selected host
+model connector, and proposes typed plan data. The kernel authenticates the
+worker, copies/validates its plan and holds an immutable review record. Owner
+approval permits one broker-controlled atomic action at a time, using the
+owner's current capabilities and VFS UID. Cancellation stops future actions;
+exit/deadline/quota cleanup reclaims workers and sockets. Model output cannot
+grant privileges or approve execution. The shell and native Agent panel provide
+review, deletion consent, status and owner-filtered RAM audit controls. See
+[AGENT_WORKFLOWS.md](docs/AGENT_WORKFLOWS.md).
+
+```mermaid
+flowchart LR
+  Owner[Shell or Agent panel] --> Request[Bounded intent]
+  Request --> Worker[Isolated zero-capability worker]
+  Worker --> Offline[Grammar and tiny trained intent model]
+  Worker --> Bridge[Optional host model connector]
+  Offline --> Plan[Typed plan proposal]
+  Bridge --> Plan
+  Plan --> Review[Kernel validation and immutable review]
+  Review --> Owner
+  Owner --> Approval[Explicit owner approval]
+  Approval --> Broker[Permission broker]
+  Broker --> Native[Native VFS and system tools]
+  Broker --> Audit[Owner-filtered RAM audit]
+```
+
 
 Build/release tooling lives on the host. It is separate from the guest kernel:
 source versions, normalized paths, compact runtime images and fixed ISO metadata

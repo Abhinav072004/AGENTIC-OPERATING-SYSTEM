@@ -45,7 +45,7 @@ long agent_infer_offline(const char *text, struct agent_plan *plan) {
         }
         if(letter(c)) {
             char word[32]={0}; size_t length=0; while(position<AGENT_INTENT_MAX && letter(text[position])) { if(length+1<sizeof(word)) { word[length++]=lower(text[position]); } ++position; }
-            if(equal(word,"and") || equal(word,"then")) { return -22; } continue;
+            if(equal(word,"and") || equal(word,"then") || equal(word,"not") || equal(word,"no") || equal(word,"never") || equal(word,"avoid") || equal(word,"without") || equal(word,"cancel")) { return -22; } continue;
         }
         if((unsigned char)c<32 || (unsigned char)c>126) { return -22; } ++position;
     }
