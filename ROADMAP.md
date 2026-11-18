@@ -43,7 +43,9 @@ verified, continue the owner-authorized sequence for:
 1. **Verified (agent milestone 1):** typed intent/native tool contracts, bounded
    grammar, canonical workspace validation, 20,000 sanitized inputs and native
    zero-capability BIOS/UEFI acceptance.
-2. Broker-enforced permissions, action validation and audit records.
+2. **Verified (agent milestone 2):** immutable broker review, owner/capability and
+   UID enforcement, explicit deletion consent, atomic writes, cancellation and
+   owner-filtered bounded audit; sanitizer and BIOS/UEFI acceptance.
 3. A bounded user-space agent runtime with cancellation and resource limits.
 4. A selected inference backend (local or networked), tested failure handling.
 5. Native shell/desktop integration and reviewable multi-step workflows.

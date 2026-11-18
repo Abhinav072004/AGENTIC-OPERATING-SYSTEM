@@ -30,7 +30,7 @@ SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c \
     kernel/process/process.c kernel/scheduler/core.c kernel/scheduler/stack.c \
     kernel/scheduler/task.c kernel/scheduler/selftest.c kernel/user/elf.c \
-    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c kernel/gui/display.c kernel/gui/buffer.c kernel/gui/syscall.c kernel/gui/desktop.c kernel/security/policy.c kernel/security/selftest.c kernel/agent/plan.c kernel/agent/foundation.c
+    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c kernel/gui/display.c kernel/gui/buffer.c kernel/gui/syscall.c kernel/gui/desktop.c kernel/security/policy.c kernel/security/selftest.c kernel/agent/plan.c kernel/agent/foundation.c kernel/agent/broker.c kernel/agent/tools.c kernel/agent/broker_boot.c
 ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm kernel/arch/x86_64/task_probe.asm kernel/user/images.asm
 ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
 SOURCES += tests/guest/memory_probe.c
@@ -192,6 +192,8 @@ test-host: $(LIMINE)/.ready $(BUILD)/user/probe.elf
 	$(BUILD)/tests/display-test
 	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/agent_plan_test.c kernel/agent/plan.c -o $(BUILD)/tests/agent-plan-test
 	$(BUILD)/tests/agent-plan-test
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/agent_broker_test.c kernel/agent/plan.c kernel/agent/broker.c kernel/agent/tools.c kernel/fs/vfs.c kernel/debug/format.c -o $(BUILD)/tests/agent-broker-test
+	$(BUILD)/tests/agent-broker-test
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi

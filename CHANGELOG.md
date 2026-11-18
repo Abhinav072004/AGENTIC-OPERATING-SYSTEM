@@ -1,5 +1,14 @@
 # Change log
 
+## 0.16.0 — 2026-11-18 (Agent milestone 2)
+
+- Enforce immutable plan review, explicit approval and extra deletion consent.
+- Check owner PID/UID and current capabilities before every atomic action.
+- Execute native workspace tools with owner file permissions; preserve existing
+  files on full-quota save failure and report partial cancellation precisely.
+- Keep 64 owner-filtered RAM audit events without file contents; reject stale IDs.
+- Verify real VFS behavior in sanitizer tests and BIOS/UEFI broker acceptance.
+
 ## 0.15.0 — 2026-11-18 (Agent milestone 1)
 
 - Define bounded, canonical typed plans for seven native tools under /home.
