@@ -12,5 +12,6 @@ bool security_syscall_allowed(uint64_t capabilities, uint64_t number, uint64_t f
     else if (number == SYS_SYSTEM || number == SYS_TASK) { required = CAP_INSPECT; }
     else if (number >= SYS_NET_SOCKET && number <= SYS_NET_SHUTDOWN) { required = CAP_NETWORK; }
     else if (number >= SYS_GUI_DRAW && number <= SYS_GUI_PRESENT) { required = CAP_DISPLAY; }
+    else if ((number >= SYS_AGENT_START && number <= SYS_AGENT_AUDIT) || number == SYS_AGENT_RELEASE) { required = CAP_AGENT_CONTROL; }
     return (capabilities & required) == required;
 }

@@ -47,4 +47,16 @@ global user_planner_start, user_planner_end
 user_planner_start:
     incbin planner_file
 user_planner_end:
+align 16
+global user_agent_start, user_agent_end
+%strcat agent_file USER_BUILD, "/agent-image.elf"
+user_agent_start:
+    incbin agent_file
+user_agent_end:
+align 16
+global user_agenttest_start, user_agenttest_end
+%strcat agenttest_file USER_BUILD, "/agenttest-image.elf"
+user_agenttest_start:
+    incbin agenttest_file
+user_agenttest_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

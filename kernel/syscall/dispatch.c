@@ -13,6 +13,7 @@
 #include "net/syscall.h"
 #include "gui/syscall.h"
 #include "security/policy.h"
+#include "agent/runtime.h"
 #include "runtime/memory.h"
 
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
@@ -28,6 +29,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
              (unsigned long long)frame->cs, (unsigned long long)frame->ss,
              (void *)(uintptr_t)top, (void *)frame);
     }
+    agent_poll();
     if (process->syscall_budget != 0 && process->syscall_count >= process->syscall_budget) { return task_finish_user(frame, USER_QUOTA_STATUS); }
     ++process->syscall_count;
     if (!security_syscall_allowed(process->capabilities, frame->rax, frame->rdi, frame->rsi)) { ++process->rejected_calls; frame->rax = (uint64_t)SYS_EPERM; return user_return(frame); }
@@ -82,6 +84,7 @@ struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame) {
     } else if ((number >= SYS_SYSTEM && number <= SYS_SLEEP) || number == SYS_SELF) { result = system_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else if (number >= SYS_NET_SOCKET && number <= SYS_NET_SHUTDOWN) { result = network_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else if (number >= SYS_GUI_DRAW && number <= SYS_GUI_PRESENT) { result = gui_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
+    else if (number >= SYS_AGENT_START && number <= SYS_AGENT_RELEASE) { result = agent_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     else { result = fs_syscall(process, number, frame->rdi, frame->rsi, frame->rdx); }
     if (result < 0) { ++process->rejected_calls; }
     frame->rax = (uint64_t)result;

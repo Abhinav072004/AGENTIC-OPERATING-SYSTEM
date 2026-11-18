@@ -74,3 +74,25 @@ long agent_broker_audit(struct agent_broker *broker, const struct agent_actor *a
     }
     return 0;
 }
+
+/* Runtime reservation has no executable plan until a validated proposal arrives. */
+long agent_broker_begin(struct agent_broker *broker, const struct agent_actor *actor) {
+    if (broker == NULL || !broker->ready) { return FS_EINVAL; } if (!controller(actor)) { return FS_EPERM; }
+    if (!room(broker) || broker->next_id > INT64_MAX) { return -75; }
+    for (size_t i=0;i<AGENT_JOB_MAX;++i) { struct agent_job *job=&broker->jobs[i]; if (job->live) { continue; }
+        memset(job,0,sizeof(*job)); job->live=true; job->info=(struct agent_job_info){.id=broker->next_id++,.owner=actor->pid,.uid=actor->uid};
+        record_event(broker,job,8,0,NULL); return (long)job->info.id;
+    } return -24;
+}
+long agent_broker_propose(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, const struct agent_plan *plan) {
+    struct agent_job *job=lookup(broker,id); if (job==NULL) { return -3; } if (!owner(job,actor)) { return FS_EPERM; }
+    if (job->info.state!=0) { return FS_EPERM; } long result=agent_validate_plan(plan); if(result<0) { return result; } if(!room(broker)) { return -75; }
+    job->plan=*plan; job->info.total=plan->count; job->info.state=AGENT_REVIEW;
+    for(uint32_t i=0;i<plan->count;++i) { if(plan->actions[i].tool==AGENT_DELETE) { job->info.destructive=1; } }
+    record_event(broker,job,AUDIT_SUBMITTED,0,NULL); return 0;
+}
+long agent_broker_fail(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, int32_t error) {
+    struct agent_job *job=lookup(broker,id); if(job==NULL) { return -3; } if(!owner(job,actor)) { return FS_EPERM; }
+    if(job->info.state>=AGENT_DONE) { return 0; } if(!room(broker)) { return -75; }
+    job->info.state=AGENT_FAILED; job->info.error=error; record_event(broker,job,AUDIT_FAILED,error,NULL); return 0;
+}

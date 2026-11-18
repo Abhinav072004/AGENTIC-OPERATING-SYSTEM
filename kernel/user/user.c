@@ -9,6 +9,7 @@
 #include "runtime/memory.h"
 #include "net/stack.h"
 #include "security/policy.h"
+#include "agent/runtime.h"
 static struct user_process processes[PROCESS_CAPACITY - 1u];
 struct user_process *user_find(uint64_t pid) {
     for (size_t i = 0; i < PROCESS_CAPACITY - 1u; ++i) { if (processes[i].live && processes[i].pid == pid) { return &processes[i]; } }
@@ -64,7 +65,10 @@ bool user_process_reap(uint64_t pid, int *status) {
     net_release(process->pid);
     fs_close_all(&process->files);
     KASSERT(user_space_destroy(&process->space));
-    KASSERT(task_reap_user(process->tid, status) && task_process_destroy(pid));
+    int exit_status;
+    KASSERT(task_reap_user(process->tid, &exit_status) && task_process_destroy(pid));
+    if (status != NULL) { *status = exit_status; }
+    agent_process_reaped(pid,exit_status);
     memset(process, 0, sizeof(*process));
     irq_restore(flags);
     return true;

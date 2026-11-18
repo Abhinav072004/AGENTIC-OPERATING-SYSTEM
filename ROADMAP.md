@@ -46,7 +46,9 @@ verified, continue the owner-authorized sequence for:
 2. **Verified (agent milestone 2):** immutable broker review, owner/capability and
    UID enforcement, explicit deletion consent, atomic writes, cancellation and
    owner-filtered bounded audit; sanitizer and BIOS/UEFI acceptance.
-3. A bounded user-space agent runtime with cancellation and resource limits.
+3. **Verified (agent milestone 3):** separate zero-capability ELF workers, checked
+   broker syscalls, CPU/syscall/deadline limits, cancellation and owner-exit
+   reclamation; six native BIOS/UEFI cases plus all host sanitizers.
 4. A selected inference backend (local or networked), tested failure handling.
 5. Native shell/desktop integration and reviewable multi-step workflows.
 

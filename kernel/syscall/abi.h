@@ -40,6 +40,18 @@
 #define SYS_CHMOD UINT64_C(36)
 #define SYS_CHOWN UINT64_C(37)
 #define SYS_SELF UINT64_C(38)
+#define SYS_AGENT_START UINT64_C(39)
+#define SYS_AGENT_REVIEW UINT64_C(40)
+#define SYS_AGENT_APPROVE UINT64_C(41)
+#define SYS_AGENT_CANCEL UINT64_C(42)
+#define SYS_AGENT_STATUS UINT64_C(43)
+#define SYS_AGENT_AUDIT UINT64_C(44)
+#define SYS_AGENT_CONTEXT UINT64_C(45)
+#define SYS_AGENT_PROPOSE UINT64_C(46)
+#define SYS_AGENT_WAIT UINT64_C(47)
+#define SYS_AGENT_STEP UINT64_C(48)
+#define SYS_AGENT_INFER UINT64_C(49)
+#define SYS_AGENT_RELEASE UINT64_C(50)
 struct self_info { uint64_t pid, capabilities, cpu_budget, syscall_budget; uint32_t uid, reserved; };
 #define SYS_COUNT 64u
 #define SYS_IO_MAX 128u

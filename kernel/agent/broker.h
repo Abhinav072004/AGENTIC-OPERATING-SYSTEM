@@ -29,6 +29,9 @@ struct agent_broker_ops { void *context; long (*execute)(void *context, const st
  * sleep. User worker authentication is a separate runtime boundary. */
 struct agent_broker { struct agent_job jobs[AGENT_JOB_MAX]; struct agent_audit audit[AGENT_AUDIT_MAX]; struct agent_broker_ops ops; uint64_t next_id, next_sequence, dropped; bool ready; };
 bool agent_broker_init(struct agent_broker *broker, const struct agent_broker_ops *ops);
+long agent_broker_begin(struct agent_broker *broker, const struct agent_actor *actor);
+long agent_broker_propose(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, const struct agent_plan *plan);
+long agent_broker_fail(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, int32_t error);
 long agent_broker_submit(struct agent_broker *broker, const struct agent_actor *actor, const struct agent_plan *plan);
 long agent_broker_review(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, struct agent_plan *plan, struct agent_job_info *info);
 long agent_broker_approve(struct agent_broker *broker, const struct agent_actor *actor, uint64_t id, uint32_t consent);

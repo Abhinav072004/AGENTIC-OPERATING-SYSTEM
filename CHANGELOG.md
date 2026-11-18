@@ -1,5 +1,15 @@
 # Change log
 
+## 0.17.0 — 2026-11-18 (Agent milestone 3)
+
+- Run each planner in a separate native address space with zero capabilities.
+- Authenticate worker syscalls by kernel PID/job binding; copy all request and
+  plan data, reject forged proposals and prevent workers approving themselves.
+- Bound jobs, CPU entries, syscall counts and review/execution wall time.
+- Reap workers after completion/cancellation and clean all jobs on owner exit.
+- Verify full execution, partial/pending cancellation, deadlines, owner death
+  and two-job exhaustion with real CPL3 workers on BIOS and UEFI.
+
 ## 0.16.0 — 2026-11-18 (Agent milestone 2)
 
 - Enforce immutable plan review, explicit approval and extra deletion consent.
