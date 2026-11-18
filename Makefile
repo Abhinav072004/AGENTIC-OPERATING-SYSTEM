@@ -8,6 +8,7 @@ LIMINE := .cache/limine
 QEMU_DISPLAY ?= gtk
 KERNEL_LOG_LEVEL ?= INFO
 BOOT_TEST ?= none
+AGENT_BRIDGE_PORT ?= 8088
 export SOURCE_DATE_EPOCH ?= 1794960000
 ISO_DATE = $(shell $(PYTHON) tools/iso_date.py)
 .DELETE_ON_ERROR:
@@ -30,7 +31,7 @@ SOURCES := kernel/kernel.c kernel/arch/x86_64/serial.c \
     kernel/arch/x86_64/controllers.c kernel/interrupts/interrupts.c \
     kernel/process/process.c kernel/scheduler/core.c kernel/scheduler/stack.c \
     kernel/scheduler/task.c kernel/scheduler/selftest.c kernel/user/elf.c \
-    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c kernel/gui/display.c kernel/gui/buffer.c kernel/gui/syscall.c kernel/gui/desktop.c kernel/security/policy.c kernel/security/selftest.c kernel/agent/plan.c kernel/agent/foundation.c kernel/agent/broker.c kernel/agent/tools.c kernel/agent/broker_boot.c kernel/agent/runtime.c kernel/agent/runtime_boot.c
+    kernel/user/copy.c kernel/user/space.c kernel/user/frame.c kernel/user/user.c kernel/user/selftest.c kernel/syscall/dispatch.c kernel/syscall/system.c kernel/user/shell.c kernel/fs/vfs.c kernel/fs/syscall.c kernel/fs/selftest.c kernel/drivers/pci.c kernel/drivers/ata.c kernel/drivers/input.c kernel/drivers/input_decode.c kernel/drivers/e1000.c kernel/drivers/drivers.c kernel/net/stack.c kernel/net/device.c kernel/net/syscall.c kernel/gui/display.c kernel/gui/buffer.c kernel/gui/syscall.c kernel/gui/desktop.c kernel/security/policy.c kernel/security/selftest.c kernel/agent/plan.c kernel/agent/foundation.c kernel/agent/broker.c kernel/agent/tools.c kernel/agent/broker_boot.c kernel/agent/runtime.c kernel/agent/runtime_boot.c kernel/agent/transport.c kernel/agent/inference_boot.c
 ASM_SOURCES := kernel/arch/x86_64/entry.asm kernel/arch/x86_64/isr.asm kernel/arch/x86_64/task_probe.asm kernel/user/images.asm
 ifneq ($(filter memory-ro memory-nx memory-guard,$(BOOT_TEST)),)
 SOURCES += tests/guest/memory_probe.c
@@ -58,7 +59,7 @@ deps: $(LIMINE)/.ready
 
 FORCE:
 $(BUILD)/config.h: FORCE tools/configure.py VERSION
-	$(PYTHON) tools/configure.py --output $@ --log-level $(KERNEL_LOG_LEVEL) --selftest $(BOOT_TEST)
+	$(PYTHON) tools/configure.py --output $@ --log-level $(KERNEL_LOG_LEVEL) --selftest $(BOOT_TEST) --agent-bridge-port $(AGENT_BRIDGE_PORT)
 
 $(BUILD)/%.o: %.c Makefile $(BUILD)/config.h $(LIMINE)/.ready
 	@mkdir -p $(@D)
@@ -72,7 +73,7 @@ USER_CFLAGS := --target=x86_64-unknown-none-elf -std=c17 -O2 -g -ffile-prefix-ma
     -fno-stack-protector -fno-pic -fno-pie -fno-unwind-tables -fno-asynchronous-unwind-tables \
     -mno-red-zone -mgeneral-regs-only -Wall -Wextra -Werror -Wpedantic -Wconversion \
     -Wshadow -Wstrict-prototypes -Wmissing-prototypes -Ikernel -Iuserland/runtime -MMD -MP
-USER_PROGRAMS := hello probe fstest shell nettest desktop security planner agent agenttest
+USER_PROGRAMS := hello probe fstest shell nettest desktop security planner agent agenttest agentinfer
 .SECONDARY: $(addprefix $(BUILD)/user/,$(addsuffix .o,$(USER_PROGRAMS))) $(addprefix $(BUILD)/user/,$(addsuffix .elf,$(USER_PROGRAMS)))
 $(BUILD)/user/%.o: userland/applications/%.c userland/runtime/syscall.h kernel/syscall/abi.h kernel/user/elf.h Makefile
 	@mkdir -p $(@D)
@@ -86,7 +87,8 @@ $(BUILD)/user/text.o: userland/runtime/text.c userland/runtime/text.h Makefile
 $(BUILD)/user/agent-%.o: kernel/agent/%.c Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
-$(BUILD)/user/planner.elf $(BUILD)/user/agent.elf $(BUILD)/user/agenttest.elf: $(BUILD)/user/agent-plan.o
+$(BUILD)/user/planner.elf $(BUILD)/user/agent.elf $(BUILD)/user/agenttest.elf $(BUILD)/user/agentinfer.elf: $(BUILD)/user/agent-plan.o
+$(BUILD)/user/agent.elf $(BUILD)/user/agentinfer.elf: $(BUILD)/user/agent-inference.o
 $(BUILD)/user/runtime-memory.o: kernel/runtime/memory.c kernel/runtime/memory.h Makefile
 	@mkdir -p $(@D)
 	$(CC) $(USER_CFLAGS) -c $< -o $@
@@ -194,6 +196,10 @@ test-host: $(LIMINE)/.ready $(BUILD)/user/probe.elf
 	$(BUILD)/tests/agent-plan-test
 	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/agent_broker_test.c kernel/agent/plan.c kernel/agent/broker.c kernel/agent/tools.c kernel/fs/vfs.c kernel/debug/format.c -o $(BUILD)/tests/agent-broker-test
 	$(BUILD)/tests/agent-broker-test
+	$(PYTHON) tools/train_intents.py --check
+	$(HOST_CC) -std=c17 -g -O1 -Wall -Wextra -Werror -Wpedantic -fsanitize=address,undefined -fno-omit-frame-pointer -Ikernel tests/agent_inference_test.c kernel/agent/inference.c kernel/agent/plan.c -o $(BUILD)/tests/agent-inference-test
+	$(BUILD)/tests/agent-inference-test
+	$(PYTHON) tests/model_bridge_test.py
 test: iso check-elf test-host
 	$(PYTHON) tests/boot_test.py --firmware bios
 	$(PYTHON) tests/boot_test.py --firmware uefi
@@ -257,3 +263,7 @@ test-release:
 	$(PYTHON) tests/release_test.py
 test-regression:
 	$(MAKE) test test-debug test-foundation test-memory test-interrupts test-scheduler test-user test-drivers test-shell test-network test-desktop test-security test-applications
+
+.PHONY: test-agent-network
+test-agent-network:
+	$(PYTHON) tests/agent_network_test.py

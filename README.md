@@ -5,7 +5,7 @@ a time. The long-term goal is an **agentic OS**: permission-controlled AI agents
 working through native OS services. AgenticOS has its own C17 kernel and uses
 Limine to boot it; it does not use a Linux or Windows kernel.
 
-**Current milestone: Agent milestone 3 — isolated, bounded agent runtime.**
+**Current milestone: Agent milestone 4 — offline inference and optional model connector.**
 The core OS has isolated native ELF processes, a RAM filesystem, tested device
 and network stacks, a serial shell and a graphical desktop with six applications.
 Capabilities, file permissions, bounded resources and fault containment protect
@@ -15,8 +15,9 @@ Start with the [user guide](docs/USER_GUIDE.md) and [release procedure](docs/REL
 The default test ISO prints `AGENTICOS: READY` and halts; desktop/shell builds
 open an interactive session after acceptance checks. The owner has authorized
 continuing through all agent milestones after the verified core release.
-[Typed intent](docs/AGENT_INTENTS.md), broker execution and isolated workers are
-verified; inference and integrated review are the remaining agent milestones.
+[Typed intent](docs/AGENT_INTENTS.md), broker execution, isolated workers and
+[offline inference/model connector](docs/AGENT_INFERENCE.md) are verified.
+Native review integration is the final planned agent milestone.
 
 ## Build and test
 
@@ -40,7 +41,8 @@ cd /workspace/AGENTIC-OPERATING-SYSTEM
 ./scripts/env.sh make test-desktop       # real framebuffer and PS/2 desktop workflows
 ./scripts/env.sh make test-security      # native permissions, quotas and orphan cleanup
 ./scripts/env.sh make test-applications  # editor, calculator, monitor and settings
-./scripts/env.sh make test-regression    # full core regression suite
+./scripts/env.sh make test-agent-network # native model connector and failure cases
+./scripts/env.sh make test-regression    # full regression suite
 ./scripts/env.sh make release test-release # two clean builds and packaged ISO boots
 ./scripts/env.sh make desktop            # local GTK desktop; see docs for VNC
 ./scripts/env.sh make shell              # use the native serial shell

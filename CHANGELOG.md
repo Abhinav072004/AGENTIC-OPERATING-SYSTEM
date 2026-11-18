@@ -1,5 +1,17 @@
 # Change log
 
+## 0.18.0 — 2026-11-18 (Agent milestone 4)
+
+- Add reproducible integer intent inference from a project-owned synthetic corpus,
+  with uncertainty rejection and bounded argument extraction.
+- Add an optional host bridge to OpenAI-compatible providers; keep keys on the
+  host and require network authority, typed validation and owner review.
+- Exercise real guest e1000/TCP and host HTTP fixtures, malformed/unsafe responses,
+  provider errors, truncated/oversized replies, timeouts and in-flight cancel.
+- Sign-extend native program exit codes and assert exact negative failure values.
+- Verify unchanged frame/block counts and complete socket reclamation; live
+  third-party model availability/quality remains user-configured and unverified.
+
 ## 0.17.0 — 2026-11-18 (Agent milestone 3)
 
 - Run each planner in a separate native address space with zero capabilities.

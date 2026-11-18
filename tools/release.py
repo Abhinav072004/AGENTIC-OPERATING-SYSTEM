@@ -40,7 +40,7 @@ def main():
     relocated = REPO/'build/release-moved-source'
     if relocated.exists(): shutil.rmtree(relocated)
     relocated.mkdir(parents=True)
-    for name in ('kernel','userland','boot','tools','scripts','tests'):
+    for name in ('kernel','userland','boot','tools','scripts','tests','ai'):
         shutil.copytree(REPO/name,relocated/name,ignore=shutil.ignore_patterns('__pycache__','*.pyc'))
     for name in ('Makefile','VERSION','LICENSE'): shutil.copy2(REPO/name,relocated/name)
     shutil.copytree(REPO/'.cache/limine',relocated/'.cache/limine')

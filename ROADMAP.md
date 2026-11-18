@@ -49,7 +49,9 @@ verified, continue the owner-authorized sequence for:
 3. **Verified (agent milestone 3):** separate zero-capability ELF workers, checked
    broker syscalls, CPU/syscall/deadline limits, cancellation and owner-exit
    reclamation; six native BIOS/UEFI cases plus all host sanitizers.
-4. A selected inference backend (local or networked), tested failure handling.
+4. **Verified (agent milestone 4):** trained integer offline classifier with
+   uncertainty rejection and an optional host model connector; sanitized
+   extraction and real BIOS/UEFI e1000/TCP/HTTP fixture failure handling.
 5. Native shell/desktop integration and reviewable multi-step workflows.
 
 No model integration or provider choice is required for first boot. Keep the

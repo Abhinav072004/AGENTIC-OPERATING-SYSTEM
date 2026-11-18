@@ -1,0 +1,9 @@
+[
+ ["mkdir", "please make a new folder"], ["mkdir", "I would like a directory"],
+ ["write", "put my words into a note"], ["write", "please store text"],
+ ["read", "show me the contents of this note"], ["read", "please view a document"],
+ ["list", "browse the files here"], ["list", "show me directory entries"],
+ ["move", "please relocate my document"], ["move", "rename this file"],
+ ["delete", "please erase my note"], ["delete", "discard a document"],
+ ["system", "how much free memory"], ["system", "report resource usage"]
+]

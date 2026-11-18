@@ -1,0 +1,9 @@
+{
+  "mkdir": ["create a folder", "make a directory", "new folder named", "please create directory", "I need a new folder", "set up a directory", "add a folder", "build a directory"],
+  "write": ["write text to file", "put text into a file", "save these words", "store text in file", "please write a note", "put content inside", "save my note", "write a document"],
+  "read": ["read this file", "show the contents", "print file contents", "view my note", "please read a document", "display text from file", "what is inside this note", "read content"],
+  "list": ["list files", "browse a folder", "show me the files", "which files are here", "list directory entries", "browse documents", "show directory listing", "what files exist"],
+  "move": ["move a file to", "rename my note", "relocate this file", "change a filename", "please move a document", "rename document to", "move old to new", "relocate my note to"],
+  "delete": ["delete a file", "remove this note", "erase the file", "delete folder", "please erase document", "remove directory", "discard this file", "delete my note"],
+  "system": ["system status", "how much memory is available", "show resource usage", "monitor memory", "check system resources", "free memory status", "report system health", "what is the memory usage"]
+}

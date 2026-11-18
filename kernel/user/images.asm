@@ -59,4 +59,10 @@ global user_agenttest_start, user_agenttest_end
 user_agenttest_start:
     incbin agenttest_file
 user_agenttest_end:
+align 16
+global user_agentinfer_start, user_agentinfer_end
+%strcat agentinfer_file USER_BUILD, "/agentinfer-image.elf"
+user_agentinfer_start:
+    incbin agentinfer_file
+user_agentinfer_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

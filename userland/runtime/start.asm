@@ -6,7 +6,7 @@ _user_start:
     cld
     and rsp, -16
     call user_main
-    mov rdi, rax
+    movsxd rdi, eax            ; Signed 32-bit native program exit status.
     mov eax, 3                 ; Native SYS_EXIT; not Linux libc.
     int 0x82
     ud2

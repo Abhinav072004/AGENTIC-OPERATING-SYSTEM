@@ -1,5 +1,6 @@
 #include "syscall.h"
 #include "agent/runtime.h"
+#include "agent/inference.h"
 int user_main(uint64_t pid, uint64_t id);
 int user_main(uint64_t pid, uint64_t id) {
     (void)pid; struct self_info own; struct agent_request request; struct agent_plan plan;
@@ -9,7 +10,7 @@ int user_main(uint64_t pid, uint64_t id) {
     if(user_call(SYS_AGENT_PROPOSE,id,UINT64_MAX,0)!=SYS_EFAULT) { return 3; }
     struct agent_plan forged={.abi=AGENT_PLAN_ABI,.count=1,.actions={{.tool=AGENT_WRITE,.path="/etc/escape",.text="forged"}}};
     if(user_call(SYS_AGENT_PROPOSE,id,(uintptr_t)&forged,0)>=0) { return 4; }
-    result=agent_parse_intent(request.intent,&plan); if(result<0) { return (int)result; }
+    result=request.backend==AGENT_BACKEND_OFFLINE ? agent_infer_offline(request.intent,&plan) : user_call(SYS_AGENT_INFER,id,(uintptr_t)&plan,0); if(result<0) { return (int)result; }
     result=user_call(SYS_AGENT_PROPOSE,id,(uintptr_t)&plan,0); if(result<0) { return (int)result; }
     result=user_call(SYS_AGENT_WAIT,id,0,0); if(result<0) { return (int)result; }
     do { result=user_call(SYS_AGENT_STEP,id,0,0); } while(result>0);
