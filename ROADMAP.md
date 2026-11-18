@@ -14,7 +14,7 @@ test suites remain regression checks. Reserved folders are not completed work.
 | 5 | PCB/TCB, contexts, cooperative then preemptive round-robin tasks, termination and synchronization | Week 5 verified: sanitized policy/rollback tests + 12 BIOS/UEFI scheduler checks |
 | 6 | Ring 3, isolation, validated write/read/exit/getpid/yield syscalls and native user programs | Week 6 verified: native ELF/CPL3, host sanitizers + 12 BIOS/UEFI user checks |
 | 7 | VFS, descriptors, RAM filesystem/initramfs, create/read/write/delete/list/rename; persistent format later | Week 7 verified: sanitized VFS + native BIOS/UEFI checks and user regression matrix |
-| 8 | Extend tested QEMU drivers: keyboard, timer, storage, mouse, PCI, network; serial/display are initial prerequisites | Planned |
+| 8 | Extend tested QEMU drivers: keyboard, timer, storage, mouse, PCI, network; serial/display are initial prerequisites | Week 8 verified: real PS/2, ATA scratch I/O and 24-frame e1000 BIOS/UEFI tests |
 | 9 | Shell parsing, helpful errors, system/process/file commands; move shell into user space | Planned |
 | 10 | Ethernet -> ARP -> IPv4 -> ICMP -> UDP -> TCP -> sockets, one tested layer at a time | Planned |
 | 11 | Native framebuffer renderer, cursor, movable windows, taskbar, launcher, terminal/file manager/calculator | Planned |

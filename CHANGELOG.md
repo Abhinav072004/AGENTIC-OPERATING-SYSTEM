@@ -1,5 +1,14 @@
 # Change log
 
+## 0.8.0 — 2026-11-18 (Week 8)
+
+- Discover PCI functions and initialize the tested e1000 with bounded DMA rings
+  and uncached MMIO; add actual Ethernet transmit/receive.
+- Add polled PS/2 keyboard/mouse, bounded input queues and signed mouse decoding.
+- Add ATA LBA28 identify/read/write/flush with bounded errors and capacity checks.
+- Test real device events, synthetic-disk integrity and network ring wrap on
+  BIOS and UEFI; retain default no-network/no-data-disk acceptance.
+
 ## 0.7.0 — 2026-11-18 (Week 7)
 
 - Add hierarchical RAM VFS, bounded sparse files, atomic storage quotas, file

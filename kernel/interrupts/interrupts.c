@@ -121,6 +121,7 @@ void interrupts_self_test(void) {
     serial_write("AGENTICOS: IRET PASS\n");
 }
 
+uint64_t interrupts_ticks(void) { return ticks; }
 uint32_t interrupts_timer_start(void) {
     KASSERT(initialized && (flags_read() & UINT64_C(0x200)) == 0 && pic.mask == UINT16_MAX);
     uint32_t divisor;

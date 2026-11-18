@@ -12,6 +12,7 @@
 #include "scheduler/task.h"
 #include "user/user.h"
 #include "fs/vfs.h"
+#include "drivers/drivers.h"
 #if CONFIG_SELFTEST == 21
 _Noreturn void user_boot_failure_probe(void);
 #endif
@@ -167,5 +168,7 @@ _Noreturn void kernel_main(void) {
     serial_write("AGENTICOS: PHASE6 PASS\n");
     fs_self_test();
     serial_write("AGENTICOS: PHASE7 PASS\n");
+    drivers_init();
+    drivers_self_test();
     cpu_halt();
 }
