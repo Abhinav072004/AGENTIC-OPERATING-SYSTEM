@@ -52,6 +52,7 @@ static volatile struct limine_kernel_address_request kernel_address_request = {
 __attribute__((used, section(".limine_requests_end")))
 static volatile LIMINE_REQUESTS_END_MARKER
 
+void shell_boot(void);
 _Noreturn void kernel_main(void);
 static struct memory_boot boot_memory;
 
@@ -164,11 +165,12 @@ _Noreturn void kernel_main(void) {
     user_boot_failure_probe();
 #endif
     user_self_test();
-    klog(LOG_INFO, "boot", "User foundation initialized; halting");
+    klog(LOG_INFO, "boot", "User foundation initialized");
     serial_write("AGENTICOS: PHASE6 PASS\n");
     fs_self_test();
     serial_write("AGENTICOS: PHASE7 PASS\n");
     drivers_init();
     drivers_self_test();
+    shell_boot();
     cpu_halt();
 }

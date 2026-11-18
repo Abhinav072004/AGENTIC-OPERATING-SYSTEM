@@ -10,8 +10,9 @@ struct user_process {
     struct user_space space;
     uint64_t pid, tid, calls[SYS_COUNT], rejected_calls, timer_entries;
     struct fs_handles files;
-    const char *name;
-    bool live, entered;
+    uint64_t parent;
+    char name[24];
+    bool live, entered, terminal;
 };
 struct user_process *user_find(uint64_t pid);
 bool user_process_start(const void *image, size_t length, const char *name, uint64_t mode,
@@ -25,4 +26,5 @@ struct interrupt_frame *user_return(struct interrupt_frame *frame);
 struct interrupt_frame *user_fault(struct interrupt_frame *frame);
 struct interrupt_frame *syscall_dispatch(struct interrupt_frame *frame);
 void user_self_test(void);
+long user_spawn_path(const char *path, uint64_t mode, uint64_t parent, bool terminal);
 #endif

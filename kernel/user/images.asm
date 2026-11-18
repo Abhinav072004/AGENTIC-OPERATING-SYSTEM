@@ -17,4 +17,10 @@ global user_fstest_start, user_fstest_end
 user_fstest_start:
     incbin fstest_file
 user_fstest_end:
+align 16
+global user_shell_start, user_shell_end
+%strcat shell_file USER_BUILD, "/shell.elf"
+user_shell_start:
+    incbin shell_file
+user_shell_end:
 section .note.GNU-stack noalloc noexec nowrite progbits

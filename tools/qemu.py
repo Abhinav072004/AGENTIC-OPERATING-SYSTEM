@@ -46,10 +46,11 @@ def main():
     parser.add_argument("--display", default="none",
                         help="QEMU display backend, e.g. none, gtk, vnc=127.0.0.1:1")
     parser.add_argument("--debug", action="store_true")
+    parser.add_argument("--iso", type=Path, help="Boot a selected AgenticOS ISO")
     args = parser.parse_args()
     with tempfile.TemporaryDirectory(prefix="agenticos-run-") as workdir:
         cmd = command(args.firmware, workdir,
-                      headless=args.headless or args.display == "none", debug=args.debug)
+                      headless=args.headless or args.display == "none", debug=args.debug, iso=args.iso)
         if not args.headless and args.display != "none":
             cmd += ["-display", args.display]
         cmd += ["-serial", "stdio"]

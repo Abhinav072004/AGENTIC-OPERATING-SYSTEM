@@ -1,5 +1,16 @@
 # Change log
 
+## 0.9.0 — 2026-11-18 (Week 9)
+
+- Add a native CPL3 shell with quotes/escapes, path normalization, bounded lines,
+  descriptive errors and filesystem/system/process commands.
+- Add checked system/task snapshots, child spawn/wait/kill and sleep syscalls;
+  allow serialized creation and off-current reaping during active scheduling.
+- Own process names, grant terminal output to interactive shell children and
+  add `make shell` plus BIOS/UEFI bidirectional serial acceptance.
+- Verify native file workflows, child execution/status/frame recovery, 10,000
+  parser inputs under sanitizers and the 12-check user-mode regression matrix.
+
 ## 0.8.0 — 2026-11-18 (Week 8)
 
 - Discover PCI functions and initialize the tested e1000 with bounded DMA rings

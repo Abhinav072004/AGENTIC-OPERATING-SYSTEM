@@ -100,7 +100,7 @@ def run(args):
                         raise RuntimeError(f"QEMU exited early ({process.returncode})")
                     if args.scenario == "normal" and ("[ERROR]" in text or "[PANIC]" in text):
                         raise RuntimeError(text)
-                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE8 PASS\n"
+                    expected = "[PANIC] [panic]" if args.scenario in ("panic", "assert") else "AGENTICOS: PHASE9 PASS\n"
                     if expected in text:
                         break
                     time.sleep(0.05)
@@ -126,6 +126,9 @@ def run(args):
                     assert text.count("AGENTICOS: PHASE6 PASS") == 1
                     assert text.count("AGENTICOS: PHASE7 PASS") == 1
                     assert text.count("AGENTICOS: FS USER PASS") == 1
+                    assert text.count("AGENTICOS: PHASE8 PASS") == 1
+                    assert text.count("AGENTICOS: PHASE9 PASS") == 1
+                    assert text.count("AGENTICOS: SHELL USER PASS") == 1
                     assert text.count("AGENTICOS: IRET PASS") == 1
                     assert text.count("AGENTICOS: TIMER PASS") == 1
                 qmp.execute("screendump", {"filename": str(output / "screen.ppm")})

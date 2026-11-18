@@ -98,6 +98,14 @@ bool task_get_info(uint64_t tid, struct task_control *info) {
     irq_restore(flags);
     return result;
 }
+bool task_snapshot(unsigned int slot, struct task_info *info) {
+    if (slot >= TASK_CAPACITY || info == NULL || core.tasks[slot].state == TASK_UNUSED) { return false; }
+    const struct task_control *task = &core.tasks[slot];
+    const struct process_control *process = process_find(&core.processes, task->pid);
+    KASSERT(process != NULL);
+    *info = (struct task_info){.pid = task->pid, .tid = task->tid, .runtime_ticks = task->runtime_ticks, .state = (uint32_t)task->state, .isolated = process->isolated ? 1u : 0u};
+    memcpy(info->name, process->name, sizeof(info->name)); return true;
+}
 void task_yield(void) { KASSERT(active); switch_now(); }
 bool task_sleep(uint64_t delay) {
     uint64_t flags = irq_save();
@@ -168,7 +176,7 @@ static void user_unreachable(void *argument) { (void)argument; PANIC("user task 
 bool task_spawn_user(uint64_t pid, uint64_t entry, uint64_t stack, uint64_t argument, uint64_t *tid) {
     uint64_t flags = irq_save(), id;
     struct process_control *process = process_find(&core.processes, pid);
-    if (active || tid == NULL || process == NULL || pid == KERNEL_PID || process->threads != 0 ||
+    if (tid == NULL || process == NULL || pid == KERNEL_PID || process->threads != 0 ||
         entry < USER_IMAGE_BASE || entry >= USER_IMAGE_END || stack < USER_STACK_BOTTOM || stack >= USER_STACK_TOP ||
         !task_spawn(pid, user_unreachable, NULL, &id)) { irq_restore(flags); return false; }
     struct task_control *task = sched_core_find(&core, id);
@@ -182,7 +190,7 @@ bool task_spawn_user(uint64_t pid, uint64_t entry, uint64_t stack, uint64_t argu
 bool task_process_bind_user(uint64_t pid, uint64_t root) {
     uint64_t flags = irq_save();
     struct process_control *process = process_find(&core.processes, pid);
-    bool result = !active && process != NULL && pid != KERNEL_PID && process->threads == 1 &&
+    bool result = process != NULL && pid != KERNEL_PID && process->threads == 1 &&
                   root % 4096 == 0 && root < (UINT64_C(1) << 52) && root != memory_address_space()->root;
     if (result) { process->address_space = root; process->isolated = true; }
     irq_restore(flags); return result;
@@ -190,7 +198,7 @@ bool task_process_bind_user(uint64_t pid, uint64_t root) {
 bool task_reap_user(uint64_t tid, int *status) {
     uint64_t flags = irq_save();
     struct task_control *task = sched_core_find(&core, tid);
-    if (active || core.current != 0 || task == NULL || task->state != TASK_ZOMBIE ||
+    if (task == NULL || task == current() || task->state != TASK_ZOMBIE ||
         !storage[(size_t)(task - core.tasks)].user) { irq_restore(flags); return false; }
     size_t slot = (size_t)(task - core.tasks);
     storage[slot].user = false;

@@ -29,7 +29,7 @@ bool user_process_start(const void *image, size_t length, const char *name, uint
     struct elf_plan plan;
     struct user_process *process = NULL;
     for (size_t i = 0; i < PROCESS_CAPACITY - 1u; ++i) { if (!processes[i].live) { process = &processes[i]; break; } }
-    if (pid == NULL || tid == NULL || process == NULL || !memory_address_space()->active ||
+    if (pid == NULL || tid == NULL || process == NULL ||
         !user_elf_plan(image, length, &plan)) { irq_restore(flags); return false; }
     uint64_t new_pid, new_tid;
     if (!task_process_create(name, &new_pid)) { irq_restore(flags); return false; }
@@ -43,7 +43,8 @@ bool user_process_start(const void *image, size_t length, const char *name, uint
         KASSERT(task_cancel(new_tid) && task_reap_user(new_tid, NULL) && task_process_destroy(new_pid));
         irq_restore(flags); return false;
     }
-    process->pid = new_pid; process->tid = new_tid; process->name = name; process->live = true;
+    process->pid = new_pid; process->tid = new_tid; process->live = true;
+    for (size_t i = 0; i + 1 < sizeof(process->name) && name[i] != '\0'; ++i) { process->name[i] = name[i]; }
     KASSERT(task_process_bind_user(new_pid, process->space.vm.root));
     *pid = new_pid; *tid = new_tid;
     irq_restore(flags);
@@ -62,6 +63,24 @@ bool user_process_reap(uint64_t pid, int *status) {
     memset(process, 0, sizeof(*process));
     irq_restore(flags);
     return true;
+}
+long user_spawn_path(const char *path, uint64_t mode, uint64_t parent, bool terminal) {
+    struct fs_info info; long result = fs_stat(path, &info);
+    if (result < 0) { return result; }
+    if (info.directory != 0) { return FS_EISDIR; }
+    if (info.size == 0 || info.size > FS_FILE_MAX) { return FS_EINVAL; }
+    struct fs_handles files = {0};
+    long fd = fs_open(&files, path, FS_READ); if (fd < 0) { return fd; }
+    void *image = kmalloc((size_t)info.size);
+    if (image == NULL) { fs_close_all(&files); return FS_ENOSPC; }
+    result = fs_read(&files, (uint64_t)fd, image, (size_t)info.size); fs_close_all(&files);
+    uint64_t pid, tid;
+    bool loaded = result == (long)info.size && user_process_start(image, (size_t)info.size, path, mode, false, &pid, &tid);
+    KASSERT(kfree(image));
+    if (!loaded) { return FS_EINVAL; }
+    struct user_process *process = user_find(pid); KASSERT(process != NULL);
+    process->parent = parent; process->terminal = terminal;
+    return (long)pid;
 }
 void user_bad_context(const struct interrupt_frame *frame) {
     struct user_process *process = user_find(task_pid());

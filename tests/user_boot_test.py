@@ -111,7 +111,7 @@ def run(args):
         with (output / "qemu.log").open("wb") as log:
             process = subprocess.Popen(cmd, stdout=log, stderr=subprocess.STDOUT)
             try:
-                expected = "[PANIC] [panic]" if args.scenario == "reject" else "AGENTICOS: PHASE8 PASS\n"
+                expected = "[PANIC] [panic]" if args.scenario == "reject" else "AGENTICOS: PHASE9 PASS\n"
                 deadline = time.monotonic() + args.timeout
                 while time.monotonic() < deadline:
                     if args.scenario == "io" and channel is None and uart_path.exists():

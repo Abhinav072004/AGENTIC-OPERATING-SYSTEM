@@ -2,6 +2,7 @@
 #define AGENTICOS_TASK_H
 #include "core.h"
 #include "arch/x86_64/interrupts.h"
+#include "syscall/abi.h"
 #define TASK_CANCELLED (-125)
 typedef void (*task_entry)(void *argument);
 struct task_mutex { uint64_t owner; bool ready; };
@@ -20,6 +21,7 @@ uint64_t task_current(void);
 uint64_t task_pid(void);
 uint64_t task_ticks(void);
 bool task_get_info(uint64_t tid, struct task_control *info);
+bool task_snapshot(unsigned int slot, struct task_info *info);
 void task_yield(void);
 bool task_sleep(uint64_t delay);
 _Noreturn void task_exit(int status);
